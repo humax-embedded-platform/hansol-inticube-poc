@@ -11,7 +11,32 @@
 static task_t revctask;
 static task_t timeout_task;
 
-static int recvworker_check_client_timeout(void *current, void* cmp) {
+static int recvworker_remove_from_waitlist(recvworker_t* rw, node_t* node) {
+
+    if (rw == NULL || node == NULL) {
+        return -1;
+    }
+
+    httpclient_t client = ((http_resp_t*)node->data)->client;
+
+    if (epoll_ctl(rw->epoll_fd, EPOLL_CTL_DEL, client.sockfd, NULL) == -1) {
+        printf("recvworker_remove_from_epoll error %d", client.sockfd);
+        return -1;
+    }
+
+    linklist_remove(rw->wait_resp_list, node);
+
+    return 0;
+}
+
+static int recvworker_httprespond_timeout_handler(http_resp_t* host, char* msg, int len) {
+
+}
+static int recvworker_httprespond_event_handler(http_resp_t* host, char* msg, int len) {
+
+}
+
+static int recvworker_check_client_timeout_cmp(void *current, void* cmp) {
 
     if(current == NULL || cmp == NULL) {
         return 0;
@@ -28,12 +53,7 @@ static int recvworker_check_client_timeout(void *current, void* cmp) {
     return 0;
 }
 
-static int recvworker_client_timeout_cb(void *client) {
-    
-    recvworker_remove_from_epoll();
-}
-
-static int recvworker_check_client_exit(void *current, void* cmp) {
+static int recvworker_check_client_waiting_cmp(void *current, void* cmp) {
 
     if(current == NULL) {
         return 0;
@@ -49,12 +69,6 @@ static int recvworker_check_client_exit(void *current, void* cmp) {
     return 0;
 }
 
-static int recvworker_client_responded_cb(void *client) {
-
-}
-
-static int recvworker_httprespond_event_handler(hostinfor_t host, char* msg, int len) {
-}
 
 static void* recvworker_httprespond_timeout_handler(void* arg) {
     recvworker_t* rw = (recvworker_t*)arg;
@@ -67,9 +81,14 @@ static void* recvworker_httprespond_timeout_handler(void* arg) {
             }
         }
 
-        int timeout = RECV_RESPOND_TIMEOUT;
-
-        linklist_remove_with_condition(rw->wait_resp_list, &timeout, recvworker_check_client_timeout, recvworker_client_timeout_cb);
+        node_t* node = NULL;
+        int timeout =  MAX_RESPOND_PER_TIME;
+        while (node = linklist_find(rw->wait_resp_list, recvworker_check_client_timeout_cmp, &timeout, 1));
+        {
+            http_resp_t* rsp = (http_resp_t*)node->data;
+            recvworker_httprespond_timeout_handler(rsp, NULL, 0);
+            recvworker_remove_from_waitlist(rw->wait_resp_list, node);
+        }
 
         usleep(1000*1000);
     }
@@ -79,7 +98,10 @@ static void* recvworker_thread_func(void* arg) {
     recvworker_t* rw = (recvworker_t*)arg;
     struct epoll_event events[MAX_RESPOND_PER_TIME];
     httpclient_t client;
+    struct sockaddr_in peer_addr;
+    socklen_t peer_addr_len = sizeof(peer_addr);
     char buffer[1024];
+    node_t* node = NULL;
 
     while (1) {
         int nfds = epoll_wait(rw->epoll_fd, events, MAX_RESPOND_PER_TIME, -1);
@@ -99,36 +121,30 @@ static void* recvworker_thread_func(void* arg) {
 
         for (int i = 0; i < nfds; i++) {
             if (events[i].events & EPOLLIN) {
-                int sockfd = events[i].data.fd;
-                struct sockaddr_in peer_addr;
-                socklen_t peer_addr_len = sizeof(peer_addr);
-                hostinfor_t host;
+                client.sockfd = events[i].data.fd;
         
-                if (getpeername(sockfd, (struct sockaddr*)&peer_addr, &peer_addr_len) == 0) {
-                    inet_ntop(AF_INET, &peer_addr.sin_addr, host.ip, sizeof(host.ip));
-                    printf("Peer IP address: %s, Port: %d\n", host.ip, ntohs(peer_addr.sin_port));
+                if (getpeername(client.sockfd, (struct sockaddr*)&peer_addr, &peer_addr_len) == 0) {
+                    inet_ntop(AF_INET, &peer_addr.sin_addr, client.host.ip, sizeof(client.host.ip));
+                    printf("Peer IP address: %s, Port: %d\n", client.host.ip, ntohs(peer_addr.sin_port));
                 } else {
                     printf("getpeername failed");
                 }
 
-                ssize_t bytes_read = recv(sockfd, buffer, sizeof(buffer) - 1, 0);
+                ssize_t bytes_read = recv(client.sockfd, buffer, sizeof(buffer) - 1, 0);
+
                 if (bytes_read < 0) {
                     perror("recv failed");
                 } else if (bytes_read == 0) {
-                    printf("Connection closed by peer on socket %d\n", sockfd);
-                    client.sockfd = sockfd;
-                    recvworker_remove_from_epoll(rw, client);
-                    close(sockfd);
+                    printf("Connection closed by peer on socket %d\n", client.sockfd);
                 } else {
                     buffer[bytes_read] = '\0';
-                    client.sockfd = sockfd;
-                    recvworker_remove_from_epoll(rw, client);
-                    close(sockfd);
-                    printf("Received response on socket %d:\n%s\n", sockfd, buffer);
                 }
 
-                if(bytes_read >=0) {
-                    recvworker_httprespond_event_handler(host, buffer, bytes_read);
+                httpclient_deinit(&client);
+                node = linklist_find(rw->wait_resp_list, recvworker_check_client_timeout_cmp, &client, 0);
+                if (node) {
+                    recvworker_httprespond_event_handler((http_resp_t*)node->data, buffer, bytes_read);
+                    recvworker_remove_from_waitlist(rw->wait_resp_list, node);
                 }
             }
         }
@@ -183,7 +199,7 @@ void recvworker_deinit(recvworker_t* rw) {
     close(rw->epoll_fd);
 }
 
-int recvworker_add_to_epoll(recvworker_t* rw, httpclient_t client) {
+int recvworker_add_to_waitlist(recvworker_t* rw, httpclient_t client) {
     if (rw == NULL || client.sockfd < 0) {
         return -1;
     }
@@ -193,7 +209,7 @@ int recvworker_add_to_epoll(recvworker_t* rw, httpclient_t client) {
     event.data.fd = client.sockfd;
 
     if (epoll_ctl(rw->epoll_fd, EPOLL_CTL_ADD, client.sockfd, &event) == -1) {
-        printf("recvworker_add_to_epoll error %d", client.sockfd);
+        printf("recvworker_add_to_waitlist error %d", client.sockfd);
         return -1;
     }
 
@@ -202,21 +218,8 @@ int recvworker_add_to_epoll(recvworker_t* rw, httpclient_t client) {
     resp.client = client;
 
     node_t* node = (node_t*)malloc(sizeof(node_t));
-    link_list_node_init(rw->wait_resp_list, (void*)&resp, sizeof(resp));
+    link_list_node_init(node, (void*)&resp, sizeof(resp));
     linklist_add(rw->wait_resp_list, node);
-
-    return 0;
-}
-
-int recvworker_remove_from_epoll(recvworker_t* rw, httpclient_t client) {
-    if (rw == NULL || client.sockfd < 0) {
-        return -1;
-    }
-
-    if (epoll_ctl(rw->epoll_fd, EPOLL_CTL_DEL, client.sockfd, NULL) == -1) {
-        printf("recvworker_remove_from_epoll error %d", client.sockfd);
-        return -1;
-    }
 
     return 0;
 }

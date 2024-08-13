@@ -12,6 +12,7 @@ int httpclient_init(httpclient_t* httpclient, hostinfor_t host) {
         return -1;
     }
 
+    httpclient->host   = host;
     httpclient->sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (httpclient->sockfd < 0) {
         perror("Socket creation failed");

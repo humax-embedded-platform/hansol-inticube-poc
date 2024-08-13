@@ -7,6 +7,7 @@ void linklist_init(linklist_t* list) {
     if (list == NULL) return;
 
     list->head = NULL;
+    list->tail = NULL; // Initialize tail
     list->size = 0;
     pthread_mutex_init(&list->m, NULL);
 }
@@ -19,7 +20,8 @@ void linklist_deinit(linklist_t* list) {
     node_t* current = list->head;
     while (current != NULL) {
         node_t* next = current->next;
-        link_list_node_deinit(current);  // Deinitialize each node
+        link_list_node_deinit(current);
+        free(current);
         current = next;
     }
 
@@ -27,6 +29,7 @@ void linklist_deinit(linklist_t* list) {
     pthread_mutex_destroy(&list->m);
 
     list->head = NULL;
+    list->tail = NULL; // Reset tail
     list->size = 0;
 }
 
@@ -36,7 +39,18 @@ void linklist_add(linklist_t* list, node_t* item) {
     pthread_mutex_lock(&list->m);
 
     item->next = list->head;
+    item->prev = NULL;
+
+    if (list->head != NULL) {
+        list->head->prev = item;
+    }
+
     list->head = item;
+
+    if (list->tail == NULL) {
+        list->tail = item;
+    }
+
     list->size++;
 
     pthread_mutex_unlock(&list->m);
@@ -47,25 +61,43 @@ void linklist_remove(linklist_t* list, node_t* item) {
 
     pthread_mutex_lock(&list->m);
 
-    node_t* current = list->head;
-    node_t* prev = NULL;
+    if (item->prev != NULL) {
+        item->prev->next = item->next;
+    } else {
+        list->head = item->next;
+    }
+
+    if (item->next != NULL) {
+        item->next->prev = item->prev;
+    } else {
+        list->tail = item->prev;
+    }
+
+    link_list_node_deinit(item);
+    free(item);
+
+    list->size--;
+
+    pthread_mutex_unlock(&list->m);
+}
+
+node_t* linklist_find(linklist_t* list, int (*condition)(const void*, const void*), const void* arg, int find_from_tail) {
+    if (list == NULL || condition == NULL) return NULL;
+
+    pthread_mutex_lock(&list->m);
+
+    node_t* current = find_from_tail ? list->tail : list->head;
 
     while (current != NULL) {
-        if (current == item) {
-            if (prev == NULL) {
-                list->head = current->next;
-            } else {
-                prev->next = current->next;
-            }
-            link_list_node_deinit(current);  // Deinitialize the node being removed
-            list->size--;
-            break;
+        if (condition(current->data, arg)) {
+            pthread_mutex_unlock(&list->m);
+            return current;  // Return the node if the condition is met
         }
-        prev = current;
-        current = current->next;
+        current = find_from_tail ? current->prev : current->next;
     }
 
     pthread_mutex_unlock(&list->m);
+    return NULL;  // Return NULL if no matching node is found
 }
 
 void link_list_node_init(node_t* node, void* data, size_t size) {
@@ -76,6 +108,7 @@ void link_list_node_init(node_t* node, void* data, size_t size) {
         memcpy(node->data, data, size);
         node->size = size;
         node->next = NULL;
+        node->prev = NULL; // Initialize prev
     }
 }
 
@@ -88,39 +121,5 @@ void link_list_node_deinit(node_t* node) {
     }
     node->size = 0;
     node->next = NULL;
-}
-
-void linklist_remove_with_condition(linklist_t* list, void* input, int (*condition)(const void*, const void*), int (*remove_callback)(const void*)) {
-    if (list == NULL || condition == NULL) return;
-
-    pthread_mutex_lock(&list->m);
-
-    node_t* current = list->head;
-    node_t* prev = NULL;
-    
-    while (current != NULL) {
-        node_t* next = current->next;
-
-        if (condition(current->data, input)) {
-            if(remove_callback != NULL) {
-                remove_callback(current->data);
-            }
-
-            if (prev == NULL) {
-                list->head = next;
-            } else {
-                prev->next = next;
-            }
-
-            link_list_node_deinit(current);
-            free(current);
-            list->size--;
-        } else {
-            prev = current;
-        }
-
-        current = next;
-    }
-
-    pthread_mutex_unlock(&list->m);
+    node->prev = NULL;
 }
