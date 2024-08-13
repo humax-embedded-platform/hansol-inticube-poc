@@ -5,6 +5,7 @@
 
 typedef struct httpclient {
     int sockfd;
+    hostinfor_t host;
 } httpclient_t;
 
 int httpclient_init(httpclient_t* httpclient, hostinfor_t host);
