@@ -3,16 +3,16 @@
 #include <stdlib.h>
 #include <string.h>
 
-void message_init(usermsg_t* msg, const char* filepath) {
+int message_init(usermsg_t* msg, const char* filepath) {
     if (msg == NULL || filepath == NULL) {
-        return;
+        return -1;
     }
 
     FILE* file = fopen(filepath, "r");
     if (file == NULL) {
         perror("Failed to open file");
         msg->msg = NULL;
-        return;
+        return -1;
     }
 
     fseek(file, 0, SEEK_END);
@@ -23,14 +23,14 @@ void message_init(usermsg_t* msg, const char* filepath) {
         perror("Failed to determine file size");
         fclose(file);
         msg->msg = NULL;
-        return;
+        return -1;
     }
 
     msg->msg = (char*)malloc(filesize + 1);
     if (msg->msg == NULL) {
         perror("Failed to allocate memory");
         fclose(file);
-        return;
+        return -1;
     }
 
     size_t read_size = fread(msg->msg, 1, filesize, file);
@@ -39,12 +39,14 @@ void message_init(usermsg_t* msg, const char* filepath) {
         free(msg->msg);
         msg->msg = NULL;
         fclose(file);
-        return;
+        return -1;
     }
 
     msg->msg[filesize] = '\0';
 
     fclose(file);
+
+    return 0;
 }
 
 void message_deinit(usermsg_t* msg) {

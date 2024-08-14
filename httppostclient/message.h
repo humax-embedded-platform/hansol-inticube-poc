@@ -5,7 +5,7 @@ typedef struct usermsg {
     char* msg;
 } usermsg_t;
 
-void message_init(usermsg_t* msg, const char* filepath);
+int message_init(usermsg_t* msg, const char* filepath);
 void message_deinit(usermsg_t* msg);
 
 
