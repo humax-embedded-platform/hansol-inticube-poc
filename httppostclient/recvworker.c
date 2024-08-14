@@ -21,7 +21,6 @@ static int recvworker_httprespond_timeout_handler(http_resp_t* rsp, char* msg, i
     }
 
     return 0;
-
 }
 static int recvworker_httprespond_event_handler(http_resp_t* rsp, char* msg, int len) {
     if (rsp != NULL && msg != NULL) {

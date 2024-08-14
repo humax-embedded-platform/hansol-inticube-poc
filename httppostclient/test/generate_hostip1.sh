@@ -29,7 +29,7 @@ generate_ip_addresses() {
 
 # Main script
 main() {
-    local count=100000
+    local count=10000
     local ip="192.168.100.237"
     local filename="hostdb.txt"
 

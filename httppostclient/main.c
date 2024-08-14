@@ -11,13 +11,25 @@ int main() {
     usermsg_t msg;
 
 
-    dbclient_init(&db,TEXT_DB,"../test/hostdb.txt");
-    message_init(&msg,"../test/msg.txt");
-    sendworker_init(&sendworker, &msg, &db);
+    if( dbclient_init(&db,TEXT_DB,"../test/hostdb.txt") < 0) {
+        printf("Can not init database\n");
+        return -1;
+    }
+
+    if (message_init(&msg,"../test/msg.txt") < 0) {
+        printf("Can not init message\n");
+        return -1;
+    }
+
+    if (sendworker_init(&sendworker, &msg, &db) < 0 ) {
+        printf("Can not init worker\n");
+        return -1;
+    }
 
     sendworker_deinit(&sendworker);
     dbclient_deinit(&db);
     message_deinit(&msg);
-    
+
     printf("end of program");
 }
+
