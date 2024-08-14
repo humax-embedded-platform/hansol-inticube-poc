@@ -102,9 +102,7 @@ void linklist_remove(linklist_t* list, int (*condition_cmp)(const void*, const v
 
             list->size--;
 
-            printf("linklist_remove remain %ld\n",list->size );
-
-            free(current); // Free the node itself
+            link_list_node_deinit(current);
 
             pthread_mutex_unlock(&list->m);
             return; // Node removed, exit function
@@ -145,4 +143,6 @@ void link_list_node_deinit(node_t* node) {
     node->size = 0;
     node->next = NULL;
     node->prev = NULL;
+
+    free(node);
 }
