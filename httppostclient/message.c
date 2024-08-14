@@ -34,7 +34,7 @@ void message_init(usermsg_t* msg, const char* filepath) {
     }
 
     size_t read_size = fread(msg->msg, 1, filesize, file);
-    if (read_size != filesize) {
+    if (read_size != (size_t)filesize) {
         perror("Failed to read file content");
         free(msg->msg);
         msg->msg = NULL;

@@ -8,17 +8,31 @@
 #define DEFAULT_USER_AGENT "marusys"
 #define DEFAULT_ACCEPT "*/*"
 #define DEFAULT_CONTENT_TYPE "application/x-www-form-urlencoded"
+#define DEFAULT_PATH "/" // Default path
 
 int httprequest_init(httprequest_t* req) {
     if (req == NULL) {
         return -1;
     }
 
-    strncpy(req->method, DEFAULT_METHOD, sizeof(req->method));
-    strncpy(req->version, DEFAULT_VERSION, sizeof(req->version));
-    strncpy(req->user_agent, DEFAULT_USER_AGENT, sizeof(req->user_agent));
-    strncpy(req->accept, DEFAULT_ACCEPT, sizeof(req->accept));
-    strncpy(req->content_type, DEFAULT_CONTENT_TYPE, sizeof(req->content_type));
+    strncpy(req->method, DEFAULT_METHOD, sizeof(req->method) - 1);
+    req->method[sizeof(req->method) - 1] = '\0'; // Ensure null termination
+
+    strncpy(req->version, DEFAULT_VERSION, sizeof(req->version) - 1);
+    req->version[sizeof(req->version) - 1] = '\0'; // Ensure null termination
+
+    strncpy(req->user_agent, DEFAULT_USER_AGENT, sizeof(req->user_agent) - 1);
+    req->user_agent[sizeof(req->user_agent) - 1] = '\0'; // Ensure null termination
+
+    strncpy(req->accept, DEFAULT_ACCEPT, sizeof(req->accept) - 1);
+    req->accept[sizeof(req->accept) - 1] = '\0'; // Ensure null termination
+
+    strncpy(req->content_type, DEFAULT_CONTENT_TYPE, sizeof(req->content_type) - 1);
+    req->content_type[sizeof(req->content_type) - 1] = '\0'; // Ensure null termination
+
+    strncpy(req->path, DEFAULT_PATH, sizeof(req->path) - 1);
+    req->path[sizeof(req->path) - 1] = '\0'; // Ensure null termination
+
     req->content_length = 0;
     req->body = NULL;
     req->message = NULL;
@@ -46,7 +60,8 @@ int httprequest_set_method(httprequest_t* req, const char* method) {
     if (req == NULL || method == NULL) {
         return -1;
     }
-    strncpy(req->method, method, sizeof(req->method));
+    strncpy(req->method, method, sizeof(req->method) - 1);
+    req->method[sizeof(req->method) - 1] = '\0'; // Ensure null termination
     return 0;
 }
 
@@ -54,7 +69,8 @@ int httprequest_set_path(httprequest_t* req, const char* path) {
     if (req == NULL || path == NULL) {
         return -1;
     }
-    strncpy(req->path, path, sizeof(req->path));
+    strncpy(req->path, path, sizeof(req->path) - 1);
+    req->path[sizeof(req->path) - 1] = '\0'; // Ensure null termination
     return 0;
 }
 
@@ -62,7 +78,8 @@ int httprequest_set_version(httprequest_t* req, const char* version) {
     if (req == NULL || version == NULL) {
         return -1;
     }
-    strncpy(req->version, version, sizeof(req->version));
+    strncpy(req->version, version, sizeof(req->version) - 1);
+    req->version[sizeof(req->version) - 1] = '\0'; // Ensure null termination
     return 0;
 }
 
@@ -70,7 +87,8 @@ int httprequest_set_host(httprequest_t* req, const char* host) {
     if (req == NULL || host == NULL) {
         return -1;
     }
-    strncpy(req->host, host, sizeof(req->host));
+    strncpy(req->host, host, sizeof(req->host) - 1);
+    req->host[sizeof(req->host) - 1] = '\0'; // Ensure null termination
     return 0;
 }
 
@@ -78,7 +96,8 @@ int httprequest_set_user_agent(httprequest_t* req, const char* user_agent) {
     if (req == NULL || user_agent == NULL) {
         return -1;
     }
-    strncpy(req->user_agent, user_agent, sizeof(req->user_agent));
+    strncpy(req->user_agent, user_agent, sizeof(req->user_agent) - 1);
+    req->user_agent[sizeof(req->user_agent) - 1] = '\0'; // Ensure null termination
     return 0;
 }
 
@@ -86,7 +105,8 @@ int httprequest_set_accept(httprequest_t* req, const char* accept) {
     if (req == NULL || accept == NULL) {
         return -1;
     }
-    strncpy(req->accept, accept, sizeof(req->accept));
+    strncpy(req->accept, accept, sizeof(req->accept) - 1);
+    req->accept[sizeof(req->accept) - 1] = '\0'; // Ensure null termination
     return 0;
 }
 
@@ -94,7 +114,8 @@ int httprequest_set_content_type(httprequest_t* req, const char* content_type) {
     if (req == NULL || content_type == NULL) {
         return -1;
     }
-    strncpy(req->content_type, content_type, sizeof(req->content_type));
+    strncpy(req->content_type, content_type, sizeof(req->content_type) - 1);
+    req->content_type[sizeof(req->content_type) - 1] = '\0'; // Ensure null termination
     return 0;
 }
 

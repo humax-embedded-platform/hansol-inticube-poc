@@ -33,5 +33,6 @@ int httprequest_set_user_agent(httprequest_t* req, const char* user_agent);
 int httprequest_set_accept(httprequest_t* req, const char* accept);
 int httprequest_set_content_type(httprequest_t* req, const char* content_type);
 int httprequest_set_body(httprequest_t* req, const char* body);
+int httprequest_build_message(httprequest_t* req);
 
 #endif // HTTPREQUEST_H

@@ -52,52 +52,75 @@ void linklist_add(linklist_t* list, node_t* item) {
     }
 
     list->size++;
+    printf("linklist_add size = %ld\n", list->size);
 
     pthread_mutex_unlock(&list->m);
 }
 
-void linklist_remove(linklist_t* list, node_t* item) {
-    if (list == NULL || item == NULL) return;
+node_t* linklist_find(linklist_t* list, int (*condition_cmp)(const void*, const void*), const void* inputcondition, int from_head) {
+    if (list == NULL || condition_cmp == NULL) return NULL; // Error handling
 
     pthread_mutex_lock(&list->m);
 
-    if (item->prev != NULL) {
-        item->prev->next = item->next;
-    } else {
-        list->head = item->next;
-    }
-
-    if (item->next != NULL) {
-        item->next->prev = item->prev;
-    } else {
-        list->tail = item->prev;
-    }
-
-    link_list_node_deinit(item);
-    free(item);
-
-    list->size--;
-
-    pthread_mutex_unlock(&list->m);
-}
-
-node_t* linklist_find(linklist_t* list, int (*condition)(const void*, const void*), const void* arg, int find_from_tail) {
-    if (list == NULL || condition == NULL) return NULL;
-
-    pthread_mutex_lock(&list->m);
-
-    node_t* current = find_from_tail ? list->tail : list->head;
+    node_t* current = from_head ? list->head : list->tail;
 
     while (current != NULL) {
-        if (condition(current->data, arg)) {
+        if (condition_cmp(current->data, inputcondition)) {
             pthread_mutex_unlock(&list->m);
-            return current;  // Return the node if the condition is met
+            return current; // Node found
         }
-        current = find_from_tail ? current->prev : current->next;
+        current = from_head ? current->next : current->prev;
     }
 
     pthread_mutex_unlock(&list->m);
-    return NULL;  // Return NULL if no matching node is found
+    return NULL; // Node not found
+}
+
+void linklist_remove(linklist_t* list, int (*condition_cmp)(const void*, const void*), const void* inputcondition, int from_head) {
+    if (list == NULL || condition_cmp == NULL) return; // Error handling
+
+    pthread_mutex_lock(&list->m);
+
+    node_t* current = from_head ? list->head : list->tail;
+
+    while (current != NULL) {
+        if (condition_cmp(current->data, inputcondition)) {
+
+            if (current->prev) {
+                current->prev->next = current->next;
+            } else {
+                // Removing the head
+                list->head = current->next;
+            }
+
+            if (current->next) {
+                current->next->prev = current->prev;
+            } else {
+                // Removing the tail
+                list->tail = current->prev;
+            }
+
+            list->size--;
+
+            printf("linklist_remove remain %ld\n",list->size );
+
+            free(current); // Free the node itself
+
+            pthread_mutex_unlock(&list->m);
+            return; // Node removed, exit function
+        }
+        current = from_head ? current->next : current->prev;
+    }
+
+    pthread_mutex_unlock(&list->m);
+}
+
+int  linklist_isempty(linklist_t* list) {
+    int isempty =0;
+    pthread_mutex_lock(&list->m);
+    isempty = list->size > 0 ? 0 : 1;
+    pthread_mutex_unlock(&list->m);
+    return isempty;
 }
 
 void link_list_node_init(node_t* node, void* data, size_t size) {

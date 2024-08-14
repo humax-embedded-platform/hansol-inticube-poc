@@ -21,8 +21,9 @@ typedef struct linklist_t {
 void linklist_init(linklist_t* list);
 void linklist_deinit(linklist_t* list);
 void linklist_add(linklist_t* list, node_t* item);
-void linklist_remove(linklist_t* list, node_t* item);
-node_t* linklist_find(linklist_t* list, int (*condition)(const void*, const void*), const void* arg, int find_from_tail);
+int  linklist_isempty(linklist_t* list);
+node_t* linklist_find(linklist_t* list, int (*condition_cmp)(const void*, const void*), const void* inputcondition, int from_head);
+void linklist_remove(linklist_t* list, int (*condition_cmp)(const void*, const void*), const void* inputcondition, int from_head);
 void link_list_node_init(node_t* node, void* data, size_t size);
 void link_list_node_deinit(node_t* node);
 
