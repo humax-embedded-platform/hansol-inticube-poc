@@ -21,14 +21,13 @@ typedef struct recvworker {
     int epoll_fd;
     worker_t recv_thread;
     worker_t timeout_thread;
-    atomic_bool is_completed;
+    atomic_int is_completed;
     linklist_t* wait_resp_list;
 } recvworker_t;
 
 int  recvworker_init(recvworker_t* rw);
 void recvworker_deinit(recvworker_t* rw);
-int  recvworker_add_to_epoll(recvworker_t* rw, httpclient_t client);
-int  recvworker_remove_from_epoll(recvworker_t* rw, httpclient_t client);
+int  recvworker_add_to_waitlist(recvworker_t* rw, httpclient_t client);
 void recvworker_set_completed(recvworker_t* rw);
 
 #endif // RECWORKER_H

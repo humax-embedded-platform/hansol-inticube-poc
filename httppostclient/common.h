@@ -7,6 +7,7 @@
 
 typedef struct hostinfor_t {
     char ip[IPV4_ADRESS_SIZE];
+    int  port;
 } hostinfor_t;
 
 typedef struct {

@@ -57,24 +57,36 @@ int textdb_deinit(textdb_t* textdb) {
 }
 
 int textdb_gethost(textdb_t* textdb, hostinfor_t* host, int index) {
+    char buff[25];
     if (textdb == NULL || host == NULL || index < 0) {
         fprintf(stderr, "textdb_gethost: Invalid arguments\n");
         return -1;
     }
 
-    size_t addr = index * (sizeof(hostinfor_t));
+    size_t addr = index * (TXT_HOST_INFO_MAX_LENGH);
     if (addr > textdb->size - sizeof(hostinfor_t)) {
-        fprintf(stderr, "textdb_gethost: Index out of range (index=%d, addr=%zu, size=%zu)\n", index, addr, textdb->size);
+        //fprintf(stderr, "textdb_gethost: Index out of range (index=%d, addr=%zu, size=%zu)\n", index, addr, textdb->size);
         return -1;
     }
 
-    memcpy(host->ip, &textdb->data[addr], sizeof(hostinfor_t));
-
-    for (size_t i = sizeof(hostinfor_t) -1; i >=0; i--) {
-        if (host->ip[i] == ' ') {
-            host->ip[i] = '\0';
-        }
+    memcpy(buff, &textdb->data[addr], TXT_HOST_INFO_MAX_LENGH);
+    const char* colon = strchr(buff, ':');
+    size_t ip_len;
+    if (colon == NULL) {
+        const char* space = strchr(buff, ' ');
+        ip_len = space - buff;
+        host->port = 80;
+    } else {
+        ip_len = colon - buff;
+        host->port = atoi(colon + 1);
     }
+
+    if (ip_len >= IPV4_ADRESS_SIZE) {
+        return -1;
+    }
+
+    strncpy(host->ip, buff, ip_len);
+    host->ip[ip_len] = '\0';
 
     return 0;
 }
