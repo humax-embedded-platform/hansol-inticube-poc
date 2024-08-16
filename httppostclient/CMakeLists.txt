@@ -15,7 +15,7 @@ add_executable(httppostclient
 )
 
 # Link the static library to the executable
-target_link_libraries(httppostclient PRIVATE mylib)
+target_link_libraries(httppostclient PRIVATE httppostlib)
 
 # Include directories for the executable
 target_include_directories(httppostclient PRIVATE ${CMAKE_SOURCE_DIR}/lib)

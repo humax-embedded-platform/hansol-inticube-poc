@@ -8,7 +8,7 @@ add_executable(logservice
 )
 
 # Link the static library to the executable
-target_link_libraries(logservice PRIVATE mylib)
+target_link_libraries(logservice PRIVATE httppostlib)
 
 # Include directories for the executable
 target_include_directories(logservice PRIVATE ${CMAKE_SOURCE_DIR}/lib)
