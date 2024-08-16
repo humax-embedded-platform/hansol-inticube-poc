@@ -7,7 +7,7 @@ void linklist_init(linklist_t* list) {
     if (list == NULL) return;
 
     list->head = NULL;
-    list->tail = NULL; // Initialize tail
+    list->tail = NULL;
     list->size = 0;
     pthread_mutex_init(&list->m, NULL);
 }
@@ -29,7 +29,7 @@ void linklist_deinit(linklist_t* list) {
     pthread_mutex_destroy(&list->m);
 
     list->head = NULL;
-    list->tail = NULL; // Reset tail
+    list->tail = NULL;
     list->size = 0;
 }
 
@@ -52,13 +52,12 @@ void linklist_add(linklist_t* list, node_t* item) {
     }
 
     list->size++;
-    printf("linklist_add size = %ld\n", list->size);
 
     pthread_mutex_unlock(&list->m);
 }
 
-node_t* linklist_find(linklist_t* list, int (*condition_cmp)(const void*, const void*), const void* inputcondition, int from_head) {
-    if (list == NULL || condition_cmp == NULL) return NULL; // Error handling
+node_t* linklist_find_and_clone(linklist_t* list, int (*condition_cmp)(const void*, const void*), const void* inputcondition, int from_head) {
+    if (list == NULL || condition_cmp == NULL) return NULL;
 
     pthread_mutex_lock(&list->m);
 
@@ -66,14 +65,22 @@ node_t* linklist_find(linklist_t* list, int (*condition_cmp)(const void*, const 
 
     while (current != NULL) {
         if (condition_cmp(current->data, inputcondition)) {
+            node_t* clone = (node_t*)malloc(sizeof(node_t));
+            if (clone == NULL) {
+                perror("Failed to allocate memory for node clone");
+                return NULL;
+            }
+
+            clone->data = malloc(current->size);
+            memcpy(clone->data, current->data, current->size);
             pthread_mutex_unlock(&list->m);
-            return current; // Node found
+            return clone; 
         }
         current = from_head ? current->next : current->prev;
     }
 
     pthread_mutex_unlock(&list->m);
-    return NULL; // Node not found
+    return NULL; 
 }
 
 void linklist_remove(linklist_t* list, int (*condition_cmp)(const void*, const void*), const void* inputcondition, int from_head) {
@@ -89,14 +96,12 @@ void linklist_remove(linklist_t* list, int (*condition_cmp)(const void*, const v
             if (current->prev) {
                 current->prev->next = current->next;
             } else {
-                // Removing the head
                 list->head = current->next;
             }
 
             if (current->next) {
                 current->next->prev = current->prev;
             } else {
-                // Removing the tail
                 list->tail = current->prev;
             }
 
@@ -105,7 +110,7 @@ void linklist_remove(linklist_t* list, int (*condition_cmp)(const void*, const v
             link_list_node_deinit(current);
 
             pthread_mutex_unlock(&list->m);
-            return; // Node removed, exit function
+            return;
         }
         current = from_head ? current->next : current->prev;
     }

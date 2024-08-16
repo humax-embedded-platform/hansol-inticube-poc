@@ -12,7 +12,6 @@ static void sendworker_task_handler(void* arg) {
     sendworker_t* sw = (sendworker_t*)arg;
     hostinfor_t ip;
     httpclient_t client;
-    static int sequence_number = 0;  // Static to maintain sequence across calls
 
     printf("sendworker_task_handler: Started\n");
 
@@ -29,19 +28,12 @@ static void sendworker_task_handler(void* arg) {
             continue;
         }
 
-        char new_msg[1024];  // Adjust the size as necessary
-        snprintf(new_msg, sizeof(new_msg), "%s [Seq: %d]", sw->msg->msg, sequence_number);
-
-        // Increment sequence number for the next message
-        sequence_number++;
-
-        if (httpclient_send_post_msg(&client, new_msg) != 0) {
+        if (httpclient_send_post_msg(&client, sw->msg->msg) != 0) {
             printf("httpclient_send_post_msg failed for ip: %s, port: %d\n", ip.ip, ip.port);
             continue;
         }
 
-        recvworker_add_to_waitlist(&sw->rev_worker, client);
-        printf("recvworker_add_to_waitlist: Added client for ip: %s, port: %d\n", ip.ip, ip.port);
+        recvworker_add_to_waitlist(&sw->rev_worker, client, sw->msg);
     }
 
     printf("sendworker_task_handler: Exiting\n");
