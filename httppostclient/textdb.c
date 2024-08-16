@@ -65,7 +65,6 @@ int textdb_gethost(textdb_t* textdb, hostinfor_t* host, int index) {
 
     size_t addr = index * (TXT_HOST_INFO_MAX_LENGH);
     if (addr > textdb->size - sizeof(hostinfor_t)) {
-        //fprintf(stderr, "textdb_gethost: Index out of range (index=%d, addr=%zu, size=%zu)\n", index, addr, textdb->size);
         return -1;
     }
 

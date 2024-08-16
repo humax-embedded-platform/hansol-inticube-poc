@@ -15,6 +15,7 @@ typedef enum {
 typedef struct dbclient {
     union {
         textdb_t textdb;  // Currently, the client only supports textdb
+
     } db;
     
     int current_index;  // Atomic integer for index

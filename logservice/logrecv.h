@@ -1,5 +1,6 @@
 #include "worker.h"
 #include "logwriter.h"
+
 typedef struct logrecv_t
 {
     int logrecv_fd;

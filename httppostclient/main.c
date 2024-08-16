@@ -4,19 +4,20 @@
 #include "dbclient.h"
 #include "sendworker.h"
 #include "message.h"
-
+#include "log.h"
 int main() {
     dbclient db;
     sendworker_t sendworker;
     usermsg_t msg;
 
+    log_init();
 
-    if( dbclient_init(&db,TEXT_DB,"../test/hostdb.txt") < 0) {
+    if( dbclient_init(&db,TEXT_DB,"../hostdb.txt") < 0) {
         printf("Can not init database\n");
         return -1;
     }
 
-    if (message_init(&msg,"../test/msg.txt") < 0) {
+    if (message_init(&msg,"../msg.txt") < 0) {
         printf("Can not init message\n");
         return -1;
     }
@@ -29,6 +30,8 @@ int main() {
     sendworker_deinit(&sendworker);
     dbclient_deinit(&db);
     message_deinit(&msg);
+
+    log_deinit();
 
     printf("end of program");
 }
