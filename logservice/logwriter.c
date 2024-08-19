@@ -6,7 +6,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-#define LOG_FILE_PATH "/tmp/"
+#define LOG_FILE_PATH "./"
 #define MAX_LOG_FILE_SIZE (500 * 1024 * 1024) // 200 MB
 
 static task_t logwriter_task;

@@ -18,10 +18,7 @@ typedef struct dbclient {
 
     } db;
     
-    int current_index;  // Atomic integer for index
     db_type_t type;  // Store the type of database used
-
-    atomic_flag index_lock;  // Spinlock to protect current_index
 } dbclient;
 
 int dbclient_init(dbclient* client, db_type_t type, const char* dbpath);

@@ -10,8 +10,6 @@ int dbclient_init(dbclient* client, db_type_t type, const char* dbpath) {
     }
 
     client->type = type;
-    client->current_index = 0;
-    atomic_flag_clear(&client->index_lock);
 
     if (type == TEXT_DB) {
         if (textdb_init(&client->db.textdb, dbpath) != 0) {
@@ -46,20 +44,9 @@ int dbclient_gethost(dbclient* client, hostinfor_t* host) {
         return -1;
     }
 
-    // Acquire spinlock
-    while (atomic_flag_test_and_set(&client->index_lock)) {
-        // Spin until the lock is acquired
-    }
-
-    int current_index = client->current_index;
-    client->current_index += 1;
-
-    // Release spinlock
-    atomic_flag_clear(&client->index_lock);
-
     switch (client->type) {
         case TEXT_DB:
-            if (textdb_gethost(&client->db.textdb, host, current_index) != 0) {
+            if (textdb_gethost(&client->db.textdb, host) != 0) {
                 return -1;
             }
             break;

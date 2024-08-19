@@ -10,13 +10,18 @@
 #define MAX_SEND_WORKER 10
 
 typedef struct sendworker {
-    dbclient*  hostdb;
-    worker_t    workers[MAX_SEND_WORKER];
+    dbclient*    hostdb;
+    usermsg_t*   msg;
+    worker_t     workers[MAX_SEND_WORKER];
     recvworker_t rev_worker;
-    usermsg_t* msg;
+    int          request_count;
+    atomic_flag  request_count_check_flag;
 } sendworker_t;
 
-int sendworker_init(sendworker_t* sw, usermsg_t* msg, dbclient* hostdb);
+int sendworker_set_hostdb(sendworker_t* sw, dbclient* db);
+int sendworker_set_msg(sendworker_t* sw, usermsg_t* msg);
+int sendworker_set_request_count(sendworker_t* sw, int cound);
+int sendworker_init(sendworker_t* sw);
 void sendworker_deinit(sendworker_t* sw);
 
 #endif // SENDWORKER_H
