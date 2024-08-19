@@ -21,25 +21,21 @@ static int recvworker_httprespond_timeout_handler(http_resp_t* rsp, char* msg, i
     char buffer[LOG_MESAGE_MAX_SIZE];
 
     if (rsp != NULL) {
-        // Calculate receive time as current time minus 10 seconds
         time_t recv_time = time(NULL) - 10;
         struct tm* recv_tm = localtime(&recv_time);
 
         char recv_time_str[64];
         strftime(recv_time_str, sizeof(recv_time_str), "%Y-%m-%d %H:%M:%S", recv_tm);
 
-        // Convert send_time to a string
         struct tm* send_tm = localtime(&rsp->send_time);
         char send_time_str[64];
         strftime(send_time_str, sizeof(send_time_str), "%Y-%m-%d %H:%M:%S", send_tm);
 
-        // Check if sendmsg is not NULL and print its content
         const char* sendmsg_content = rsp->sendmsg ? rsp->sendmsg->msg : "No message content";
 
-        // Format the message into the provided buffer
         int len = snprintf(buffer, sizeof(buffer),
                  "Send Time: %s, Receive Time (Timeout - 10s): %s, Host Info: IP = %s, Port = %d, Sent Message: %s, Message: NULL (Timeout)\n",
-                 send_time_str, recv_time_str, rsp->client.host.ip, rsp->client.host.port, sendmsg_content);
+                 send_time_str, recv_time_str, rsp->client.host.adress.domain, rsp->client.host.port, sendmsg_content);
 
         log_write(buffer, len);
 
@@ -69,7 +65,7 @@ static int recvworker_httprespond_event_handler(http_resp_t* rsp, char* msg, int
 
         int size = snprintf(buffer, sizeof(buffer),
                  "Send Time: %s, Receive Time: %s, Host Info: IP = %s, Port = %d, Sent Message: %s, Received Message: %.*s",
-                 send_time_str, recv_time_str, rsp->client.host.ip, rsp->client.host.port,
+                 send_time_str, recv_time_str, rsp->client.host.adress.domain, rsp->client.host.port,
                  sendmsg_content, len, msg);
 
         log_write(buffer, size);
@@ -160,12 +156,11 @@ static void recvworker_wait_respond_func(void* arg) {
     recvworker_t* rw = (recvworker_t*)arg;
     struct epoll_event events[MAX_RESPOND_PER_TIME];
     httpclient_t client;
-    struct sockaddr_in peer_addr;
-    socklen_t peer_addr_len = sizeof(peer_addr);
     char buffer[1024];
     node_t* node = NULL;
     int is_sendcompleted = -1;
     int is_waitcompleted = -1;
+    ssize_t bytes_read = 0;
 
     while (1) {
         is_sendcompleted = atomic_load(&rw->is_completed);
@@ -188,15 +183,7 @@ static void recvworker_wait_respond_func(void* arg) {
         for (int i = 0; i < nfds; i++) {
             if (events[i].events & EPOLLIN) {
                 client.sockfd = events[i].data.fd;
-        
-                if (getpeername(client.sockfd, (struct sockaddr*)&peer_addr, &peer_addr_len) == 0) {
-                    inet_ntop(AF_INET, &peer_addr.sin_addr, client.host.ip, sizeof(client.host.ip));
-                } else {
-                    printf("getpeername failed");
-                }
-
-                ssize_t bytes_read = recv(client.sockfd, buffer, sizeof(buffer) - 1, 0);
-
+                bytes_read = recv(client.sockfd, buffer, sizeof(buffer) - 1, 0);
                 if (bytes_read < 0) {
                     continue;
                 } else if (bytes_read == 0) {
@@ -205,7 +192,7 @@ static void recvworker_wait_respond_func(void* arg) {
                     buffer[bytes_read] = '\0';
                 }
 
-                node = linklist_find_and_clone(rw->wait_resp_list, recvworker_check_client_waiting_cmp, &client, 0);
+                node = linklist_find_and_clone(rw->wait_resp_list, recvworker_check_client_waiting_cmp, &client, 1);
                 if (node) {
                     http_resp_t* rsp = (http_resp_t*)node->data;
                     recvworker_httprespond_event_handler(rsp, buffer, bytes_read);
