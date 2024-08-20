@@ -282,3 +282,8 @@ void recvworker_set_completed(recvworker_t* rw) {
         atomic_store(&rw->is_completed, 1);
     }
 }
+
+
+size_t recvworker_waitlist_size(recvworker_t* rw) {
+    return linklist_get_size(rw->wait_resp_list);
+}

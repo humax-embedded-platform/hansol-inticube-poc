@@ -151,3 +151,13 @@ void link_list_node_deinit(node_t* node) {
 
     free(node);
 }
+
+size_t linklist_get_size(linklist_t* list) {
+    size_t size =0;
+
+    pthread_mutex_lock(&list->m);
+    size = list->size;
+    pthread_mutex_unlock(&list->m);
+
+    return size;
+}
