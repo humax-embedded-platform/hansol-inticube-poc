@@ -15,7 +15,6 @@ typedef enum {
 typedef struct dbclient {
     union {
         textdb_t textdb;  // Currently, the client only supports textdb
-
     } db;
     
     db_type_t type;  // Store the type of database used

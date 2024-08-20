@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <unistd.h>
 
 static task_t sendtask;
 
@@ -19,14 +20,18 @@ static void sendworker_task_handler(void* arg) {
 
     while (1)
     {
-       while (atomic_flag_test_and_set(&sw->request_count_check_flag)) {}
+        if(recvworker_waitlist_size(&sw->rev_worker) >= MAX_HANDLE_REQUEST_PER_TIME) {
+            usleep(1000);
+        }
+
+        while (atomic_flag_test_and_set(&sw->request_count_check_flag)) {}
 
         sw->request_count--;
         if (sw->request_count < 0) {
             atomic_flag_clear(&sw->request_count_check_flag);
             break;
         }
-        // Release the lock
+
         atomic_flag_clear(&sw->request_count_check_flag);
 
         if(dbclient_gethost(sw->hostdb, &host)) {

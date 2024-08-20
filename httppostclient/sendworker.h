@@ -7,7 +7,8 @@
 #include "recvworker.h"
 #include <stdatomic.h>
 
-#define MAX_SEND_WORKER 10
+#define MAX_SEND_WORKER  10
+#define MAX_HANDLE_REQUEST_PER_TIME 10000
 
 typedef struct sendworker {
     dbclient*    hostdb;

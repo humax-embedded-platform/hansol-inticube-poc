@@ -31,5 +31,6 @@ int  recvworker_init(recvworker_t* rw);
 void recvworker_deinit(recvworker_t* rw);
 int  recvworker_add_to_waitlist(recvworker_t* rw, httpclient_t client, usermsg_t* sendmsg);
 void recvworker_set_completed(recvworker_t* rw);
+size_t recvworker_waitlist_size(recvworker_t* rw);
 
 #endif // RECWORKER_H
