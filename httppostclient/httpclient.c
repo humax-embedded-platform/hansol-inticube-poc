@@ -163,7 +163,10 @@ int httpclient_send_post_msg(httpclient_t* httpclient, char* msg) {
         return -1;
     }
 
-    httprequest_set_body(&req, msg);
+    if( httprequest_set_body(&req, msg) !=0 ) {
+        httprequest_deinit(&req);
+        return -1;
+    }
 
     if(httpclient->host.adress_type == HOST_IPV4_TYPE) {
         httprequest_set_host(&req, httpclient->host.adress.ip);
@@ -176,8 +179,23 @@ int httpclient_send_post_msg(httpclient_t* httpclient, char* msg) {
         return -1;
     }
 
-    while (send(httpclient->sockfd, req.message, strlen(req.message), 0) <= 0) {
-        usleep(100);
+    size_t msg_length = strlen(req.message);
+    size_t total_send = 0;
+
+    while (total_send < msg_length)
+    {
+        ssize_t sent = send(httpclient->sockfd, req.message + total_send, msg_length - total_send, 0);
+        if (sent == -1) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                usleep(100);
+                continue;
+            } else {
+                perror("send");
+                return -1;
+            }
+        }
+
+        total_send += sent;
     }
 
     httprequest_deinit(&req);

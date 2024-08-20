@@ -31,7 +31,7 @@ int main() {
 
     sendworker_set_hostdb(&sendworker, &db);
     sendworker_set_msg(&sendworker, &msg);
-    sendworker_set_request_count(&sendworker, 10000);
+    sendworker_set_request_count(&sendworker, 1000);
 
     // Init time end
     end_time = clock();

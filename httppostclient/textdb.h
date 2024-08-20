@@ -8,7 +8,7 @@
 typedef struct {
     char*  data;
     size_t size;
-    int read_offset;
+    int    read_offset;
     pthread_mutex_t read_lock;
 } textdb_t;
 
