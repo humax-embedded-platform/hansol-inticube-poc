@@ -9,8 +9,8 @@
 #include <stdatomic.h>
 #include <time.h>
 
-#define MAX_RESPOND_PER_TIME  5
-#define RECV_RESPOND_TIMEOUT 5
+#define MAX_RESPOND_PER_TIME  10
+#define RECV_RESPOND_TIMEOUT 30
 
 #define REQUEST_WAIT_RESP_TIMEOUT_ERR   28
 

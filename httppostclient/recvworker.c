@@ -55,9 +55,8 @@ static int recvworker_httprespond_timeout_handler(recvworker_t* rw, http_resp_t*
 
         log_write(buffer, log_len);
 
+        printf("Host: %s Port %d Respond Code: %d (Timeout)\n", rsp->client.host.adress.domain, rsp->client.host.port, 28);
         report_add_result(&rw->report, 28);
-    } else {
-        printf("Received null response pointer, Message: NULL\n");
     }
 
     return 0;
@@ -88,9 +87,8 @@ static int recvworker_httprespond_event_handler(recvworker_t* rw, http_resp_t* r
         log_write(buffer, size);
 
         int error = recvworker_analyze_httprespond(msg, len);
+        printf("Host: %s Port %d Respond Code: %d (Success)\n", rsp->client.host.adress.domain, rsp->client.host.port, error);
         report_add_result(&rw->report, error);
-    } else {
-        printf("Received null response pointer, Message: NULL\n");
     }
 
     return 0;
@@ -142,7 +140,7 @@ static void recvworker_wait_timeout_func(void* arg) {
     recvworker_t* rw = (recvworker_t*)arg;
     int is_sendcompleted = -1;
     int is_waitcompleted = -1;
-    int timeout =  MAX_RESPOND_PER_TIME;
+    int timeout =  RECV_RESPOND_TIMEOUT;
     while (1)
     {
         usleep(1000*1000);
@@ -272,7 +270,7 @@ void recvworker_deinit(recvworker_t* rw) {
     linklist_deinit(rw->wait_resp_list);
     free(rw->wait_resp_list);
     close(rw->epoll_fd);
-    
+
     report_print_result(&rw->report);
     report_deinit(&rw->report);
 }

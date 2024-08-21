@@ -16,7 +16,7 @@ static int report_error_code_cmp(void* curr, void* input_check) {
 
 static void report_print_error(void* curr, size_t size) {
     error_code_t* error_data = (error_code_t*)curr;
-    printf("Error Code: %d, Count: %d\n", error_data->error_code, error_data->count);
+    printf("Respond Code: %d, Count: %d\n", error_data->error_code, error_data->count);
 }
 
 void report_init(report_t* rp) {
