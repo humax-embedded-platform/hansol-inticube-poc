@@ -16,9 +16,13 @@ int main(int argc, char* argv[]) {
     clock_t start_time, end_time;
     double elapsed_time_ms;
 
-    log_init();
+    if (cmd_parser(argc, argv) < 0) {
+        return -1;
+    }
 
-    cmd_parse_from_args(argc, argv);
+    if(log_init(config_get_log_folder()) <0 ) {
+        return -1;
+    }
 
     if (dbclient_init(&db, TEXT_DB, config_get_host_file()) < 0) {
         log_deinit();

@@ -13,7 +13,7 @@
 #include <sys/wait.h>
 
 #define LOG_WRITE_RETRY_MAX     5
-#define LOGSERVER_EXECUTABLE_FILE "../logservice/logservice"
+#define LOGSERVER_EXECUTABLE_FILE "./logservice"
 
 static log_client_t log_client;
 static task_t       logtask;
@@ -137,7 +137,7 @@ void log_worker_func(void* arg) {
     }
 }
 
-int log_init() {
+int log_init(char* log_path) {
 
     if(start_log_server() < 0) {
         return -1;
@@ -187,6 +187,10 @@ int log_init() {
     }
 
     atomic_store(&log_client.is_initialized, 1);
+
+    if(log_path != NULL) {
+        log_config(CONFIG_LOG_PATH, log_path);
+    }
 
     return 0;
 }
