@@ -24,7 +24,6 @@ static int httpclient_init_with_ipv4(httpclient_t* httpclient, hostinfor_t host)
         return -1;
     }
 
-    // Set the socket to non-blocking mode
     int flags = fcntl(httpclient->sockfd, F_GETFL, 0);
     if (flags == -1) {
         perror("fcntl(F_GETFL) failed");
@@ -42,9 +41,6 @@ static int httpclient_init_with_ipv4(httpclient_t* httpclient, hostinfor_t host)
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(host.port);
-
-    printf("host.adress.ip %s\n",host.adress.ip);
-    printf("host.adress.port %d\n",host.port);
 
     if (inet_pton(AF_INET, host.adress.ip, &server_addr.sin_addr) <= 0) {
         perror("Invalid IP address");
@@ -78,7 +74,6 @@ static int httpclient_init_with_domain(httpclient_t* httpclient, hostinfor_t hos
         return -1;
     }
 
-    // Set the socket to non-blocking mode
     int flags = fcntl(httpclient->sockfd, F_GETFL, 0);
     if (flags == -1) {
         perror("fcntl(F_GETFL) failed");
@@ -92,11 +87,10 @@ static int httpclient_init_with_domain(httpclient_t* httpclient, hostinfor_t hos
         return -1;
     }
 
-    // Resolve the domain name to an IP address
     struct addrinfo hints, *res;
     memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_INET;         // Only IPv4 addresses
-    hints.ai_socktype = SOCK_STREAM;   // TCP stream sockets
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
 
     int err = getaddrinfo(host.adress.domain, NULL, &hints, &res);
     if (err != 0) {
@@ -105,7 +99,6 @@ static int httpclient_init_with_domain(httpclient_t* httpclient, hostinfor_t hos
         return -1;
     }
 
-    // Set the resolved IP address and port
     struct sockaddr_in server_addr;
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
@@ -114,7 +107,6 @@ static int httpclient_init_with_domain(httpclient_t* httpclient, hostinfor_t hos
 
     freeaddrinfo(res); 
 
-    // Attempt to connect
     int ret = connect(httpclient->sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr));
     if (ret < 0) {
         if (errno != EINPROGRESS) {
@@ -182,12 +174,11 @@ int httpclient_send_post_msg(httpclient_t* httpclient, char* msg) {
     size_t msg_length = strlen(req.message);
     size_t total_send = 0;
 
-    while (total_send < msg_length)
-    {
+    while (total_send < msg_length) {
         ssize_t sent = send(httpclient->sockfd, req.message + total_send, msg_length - total_send, 0);
         if (sent == -1) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                usleep(100);
+                usleep(2000);
                 continue;
             } else {
                 perror("send");

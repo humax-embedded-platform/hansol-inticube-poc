@@ -154,7 +154,6 @@ int textdb_init(textdb_t* textdb, const char* dbpath) {
     }
 
     fclose(file);
-    printf("textdb_init: Successfully\n");
     return 0;
 }
 
@@ -192,7 +191,6 @@ int textdb_gethost(textdb_t* textdb, hostinfor_t* host) {
         perror("textdb_gethost: Mutex lock failed");
         return -1;
     }
-
 
     if(textdb->read_offset >= (textdb->size -1)) {
         textdb->read_offset = 0;

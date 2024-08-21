@@ -21,7 +21,6 @@ void linklist_deinit(linklist_t* list) {
     while (current != NULL) {
         node_t* next = current->next;
         link_list_node_deinit(current);
-        free(current);
         current = next;
     }
 
@@ -67,6 +66,7 @@ node_t* linklist_find_and_clone(linklist_t* list, int (*condition_cmp)(const voi
         if (condition_cmp(current->data, inputcondition)) {
             node_t* clone = (node_t*)malloc(sizeof(node_t));
             if (clone == NULL) {
+                pthread_mutex_unlock(&list->m);
                 perror("Failed to allocate memory for node clone");
                 return NULL;
             }
@@ -84,7 +84,7 @@ node_t* linklist_find_and_clone(linklist_t* list, int (*condition_cmp)(const voi
 }
 
 void linklist_remove(linklist_t* list, int (*condition_cmp)(const void*, const void*), const void* inputcondition, int from_head) {
-    if (list == NULL || condition_cmp == NULL) return; // Error handling
+    if (list == NULL || condition_cmp == NULL) return;
 
     pthread_mutex_lock(&list->m);
 
@@ -119,6 +119,10 @@ void linklist_remove(linklist_t* list, int (*condition_cmp)(const void*, const v
 }
 
 int  linklist_isempty(linklist_t* list) {
+    if(list == NULL) {
+        return 1;
+    }
+
     int isempty =0;
     pthread_mutex_lock(&list->m);
     isempty = list->size > 0 ? 0 : 1;
@@ -134,7 +138,7 @@ void link_list_node_init(node_t* node, void* data, size_t size) {
         memcpy(node->data, data, size);
         node->size = size;
         node->next = NULL;
-        node->prev = NULL; // Initialize prev
+        node->prev = NULL;
     }
 }
 
@@ -160,4 +164,41 @@ size_t linklist_get_size(linklist_t* list) {
     pthread_mutex_unlock(&list->m);
 
     return size;
+}
+
+int linklist_find_and_update(linklist_t* list, int (*condition_check_and_modify)(void*, void*), void* inputcondition) {
+    if (list == NULL || condition_check_and_modify == NULL) {
+        return 0;
+    }
+
+    pthread_mutex_lock(&list->m);
+
+    node_t* current = list->head;
+    while (current != NULL) {
+        if (condition_check_and_modify(current->data, inputcondition) == 1) {
+            pthread_mutex_unlock(&list->m);
+            return 1;
+        }
+        current = current->next;
+    }
+
+    pthread_mutex_unlock(&list->m);
+
+    return 0;
+}
+
+void linklist_for_each(linklist_t* list, void (*callback)(void*, size_t)) {
+    if (list == NULL || callback == NULL) {
+        return;
+    }
+
+    pthread_mutex_lock(&list->m);
+
+    node_t* current = list->head;
+    while (current != NULL) {
+        callback(current->data, current->size);
+        current = current->next;
+    }
+
+    pthread_mutex_unlock(&list->m);
 }

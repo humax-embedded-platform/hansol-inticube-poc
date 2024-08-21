@@ -5,7 +5,6 @@
 #include "buffer.h"
 #include <stdatomic.h>
 
-#define LOG_WRITER_BUFFER_SIZE LOG_BUFFER_FLUSH_THRESHOLD_SIZE
 #define LOG_WRITER_CAPACITY    100
 
 typedef struct logwriter_t {

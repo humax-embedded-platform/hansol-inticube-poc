@@ -3,7 +3,7 @@
 
 #include <stddef.h>
 #include <pthread.h> 
-#include "common.h"
+#include "httpclient.h"
 
 typedef struct {
     char*  data;
