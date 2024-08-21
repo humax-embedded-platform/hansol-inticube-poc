@@ -1,4 +1,5 @@
 #include "logwriter.h"
+#include "logconfig.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -11,13 +12,23 @@
 
 static task_t logwriter_task;
 static size_t current_log_size = 0;
+static int    config_path_changed = 0;
+
+static void logwriter_handler_config_changed(int id ,const logconfig_item_t* config) {
+    if(id == CONFIG_LOG_PATH) {
+        config_path_changed = 1;
+    }
+}
 
 static int logwriter_init_log_file(logwriter_t* writer) {
     char filename[256];
     time_t now = time(NULL);
     struct tm* timeinfo = localtime(&now);
 
-    snprintf(filename, sizeof(filename), LOG_FILE_PATH "logfile_%04d%02d%02d_%02d%02d%02d.log",
+    const char* log_file_path = logconfig_get_logpath();
+
+    snprintf(filename, sizeof(filename), "%s/logfile_%04d%02d%02d_%02d%02d%02d.log",
+             log_file_path, 
              timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday,
              timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
 
@@ -55,6 +66,10 @@ static void logwriter_worker_func(void* arg) {
                 current_log_size = 0;
             }
         } else {
+            if(config_path_changed == 1) {
+                logwriter_init_log_file(writer);
+                config_path_changed = 0;
+            }
             usleep(1000);
         }
     }
@@ -65,7 +80,6 @@ void logwriter_init(logwriter_t *writer) {
     writer->log_file_fd = 0;
 
     logwriter_init_log_file(writer);
-
     buffer_init(&writer->logbuff, LOG_WRITER_CAPACITY);
 
     logwriter_task.task_handler = logwriter_worker_func;
@@ -76,6 +90,8 @@ void logwriter_init(logwriter_t *writer) {
         buffer_deinit(&writer->logbuff);
         exit(EXIT_FAILURE);
     }
+
+    logconfig_register_config_changed(logwriter_handler_config_changed);
 }
 
 void logwriter_deinit(logwriter_t *writer) {

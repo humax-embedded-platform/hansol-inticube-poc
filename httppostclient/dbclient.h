@@ -2,7 +2,7 @@
 #define DBCLIENT_H
 
 #include "textdb.h"
-#include "common.h"
+#include "httpclient.h"
 #include <stdatomic.h>  // Include for atomic operations
 #include <pthread.h>   // Include for pthread_mutex_t
 

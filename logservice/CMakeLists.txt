@@ -5,6 +5,7 @@ add_executable(logservice
     main.c
     logrecv.c
     logwriter.c
+    logconfig.c
 )
 
 # Link the static library to the executable

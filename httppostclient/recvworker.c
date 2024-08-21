@@ -13,8 +13,24 @@
 static task_t revctask;
 static task_t timeout_task;
 
+static int recvworker_analyze_httprespond(char* msg, int len) {
+    if (len <= 0 || msg == NULL) {
+        return -1;
+    }
 
-static int recvworker_httprespond_timeout_handler(http_resp_t* rsp, char* msg, int len) {
+    char* status_start = strstr(msg, "HTTP/1.1 ");
+    if (status_start == NULL) {
+        return -1;
+    }
+
+    status_start += 9;
+
+    int status_code = atoi(status_start);
+
+    return status_code;
+}
+
+static int recvworker_httprespond_timeout_handler(recvworker_t* rw, http_resp_t* rsp, char* msg, int len) {
     (void)len;
     (void)msg;
 
@@ -33,12 +49,13 @@ static int recvworker_httprespond_timeout_handler(http_resp_t* rsp, char* msg, i
 
         const char* sendmsg_content = rsp->sendmsg ? rsp->sendmsg->msg : "No message content";
 
-        int len = snprintf(buffer, sizeof(buffer),
+        int log_len = snprintf(buffer, sizeof(buffer),
                  "Send Time: %s, Receive Time (Timeout - 10s): %s, Host Info: IP = %s, Port = %d, Sent Message: %s, Message: NULL (Timeout)\n",
                  send_time_str, recv_time_str, rsp->client.host.adress.domain, rsp->client.host.port, sendmsg_content);
 
-        log_write(buffer, len);
+        log_write(buffer, log_len);
 
+        report_add_result(&rw->report, 28);
     } else {
         printf("Received null response pointer, Message: NULL\n");
     }
@@ -47,7 +64,7 @@ static int recvworker_httprespond_timeout_handler(http_resp_t* rsp, char* msg, i
 }
 
 
-static int recvworker_httprespond_event_handler(http_resp_t* rsp, char* msg, int len) {
+static int recvworker_httprespond_event_handler(recvworker_t* rw, http_resp_t* rsp, char* msg, int len) {
     char buffer[LOG_MESAGE_MAX_SIZE];
 
     if (rsp != NULL) {
@@ -70,6 +87,8 @@ static int recvworker_httprespond_event_handler(http_resp_t* rsp, char* msg, int
 
         log_write(buffer, size);
 
+        int error = recvworker_analyze_httprespond(msg, len);
+        report_add_result(&rw->report, error);
     } else {
         printf("Received null response pointer, Message: NULL\n");
     }
@@ -141,7 +160,7 @@ static void recvworker_wait_timeout_func(void* arg) {
             node = linklist_find_and_clone(rw->wait_resp_list, recvworker_check_client_timeout_cmp, &timeout, 0);
             if (node != NULL) {
                 http_resp_t* rsp = (http_resp_t*)node->data;
-                recvworker_httprespond_timeout_handler(rsp,NULL, 0);
+                recvworker_httprespond_timeout_handler(rw, rsp,NULL, 0);
                 recvworker_remove_from_waitlist(rw, rsp->client);
                 link_list_node_deinit(node);
                 usleep(1000);
@@ -195,7 +214,7 @@ static void recvworker_wait_respond_func(void* arg) {
                 node = linklist_find_and_clone(rw->wait_resp_list, recvworker_check_client_waiting_cmp, &client, 1);
                 if (node) {
                     http_resp_t* rsp = (http_resp_t*)node->data;
-                    recvworker_httprespond_event_handler(rsp, buffer, bytes_read);
+                    recvworker_httprespond_event_handler(rw, rsp, buffer, bytes_read);
                     recvworker_remove_from_waitlist(rw, rsp->client);
                     link_list_node_deinit(node);
                 }
@@ -219,19 +238,23 @@ int recvworker_init(recvworker_t* rw) {
 
     rw->wait_resp_list = (linklist_t*)malloc(sizeof(linklist_t));
     linklist_init(rw->wait_resp_list);
+    report_init(&rw->report);
 
     revctask.task_handler = recvworker_wait_respond_func;
     revctask.arg = rw;
     if (worker_init(&rw->recv_thread, &revctask) != 0) {
+        linklist_deinit(rw->wait_resp_list);
+        report_deinit(&rw->report);
         close(rw->epoll_fd);
         return -1;
     }
 
     timeout_task.task_handler = recvworker_wait_timeout_func;
     timeout_task.arg = rw;
-
     if (worker_init(&rw->timeout_thread, &timeout_task) != 0) {
         worker_deinit(&rw->recv_thread);
+        linklist_deinit(rw->wait_resp_list);
+        report_deinit(&rw->report);
         close(rw->epoll_fd);
         return -1;
     }
@@ -249,6 +272,9 @@ void recvworker_deinit(recvworker_t* rw) {
     linklist_deinit(rw->wait_resp_list);
     free(rw->wait_resp_list);
     close(rw->epoll_fd);
+    
+    report_print_result(&rw->report);
+    report_deinit(&rw->report);
 }
 
 int recvworker_add_to_waitlist(recvworker_t* rw, httpclient_t client, usermsg_t* sendmsg) {

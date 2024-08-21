@@ -5,13 +5,14 @@
 #include "httpclient.h"
 #include "linkedlist.h"
 #include "message.h"
-#include "common.h"
-
+#include "report.h"
 #include <stdatomic.h>
 #include <time.h>
 
 #define MAX_RESPOND_PER_TIME  5
 #define RECV_RESPOND_TIMEOUT 5
+
+#define REQUEST_WAIT_RESP_TIMEOUT_ERR   28
 
 typedef struct http_resp_t {
     time_t send_time;
@@ -25,6 +26,7 @@ typedef struct recvworker {
     worker_t timeout_thread;
     atomic_int is_completed;
     linklist_t* wait_resp_list;
+    report_t report;
 } recvworker_t;
 
 int  recvworker_init(recvworker_t* rw);

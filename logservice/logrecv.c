@@ -1,5 +1,6 @@
 #include "logrecv.h"
 #include "logwriter.h"
+#include "common.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -8,8 +9,6 @@
 #include <sys/un.h>
 #include <errno.h>
 #include <string.h>
-
-#define LOGRECV_SOCKET_PATH "/tmp/log_service_socket"
 
 task_t logrecv_task;
 

@@ -12,6 +12,9 @@ add_executable(httppostclient
     recvworker.c
     sendworker.c
     textdb.c
+    cmd.c
+    config.c
+    report.c
 )
 
 # Link the static library to the executable
