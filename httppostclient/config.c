@@ -104,13 +104,11 @@ int config_set_log_folder(const char* log_folder) {
         return -1;
     }
 
-    log_config(CONFIG_LOG_PATH, config.log_folder);
-
     return 0;
 }
 
 int config_set_request_count(int request_count) {
-    if (request_count < 0) {
+    if (request_count <= 0) {
         printf("request number need > 0\n");
         return -1;
     }

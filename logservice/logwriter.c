@@ -7,7 +7,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-#define LOG_FILE_PATH "./"
+#define LOG_FILE_PATH_DEFAULT "./"
 #define MAX_LOG_FILE_SIZE (500 * 1024 * 1024) // 200 MB
 
 static task_t logwriter_task;
@@ -26,6 +26,9 @@ static int logwriter_init_log_file(logwriter_t* writer) {
     struct tm* timeinfo = localtime(&now);
 
     const char* log_file_path = logconfig_get_logpath();
+    if(log_file_path == NULL || strlen(log_file_path) <= 0 ) {
+        log_file_path = LOG_FILE_PATH_DEFAULT;
+    }
 
     snprintf(filename, sizeof(filename), "%s/logfile_%04d%02d%02d_%02d%02d%02d.log",
              log_file_path, 

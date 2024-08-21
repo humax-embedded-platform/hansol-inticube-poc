@@ -3,5 +3,5 @@
 
 #include <stdbool.h>
 
-bool cmd_parse_from_args(int argc, char* argv[]);
+int cmd_parser(int argc, char* argv[]);
 #endif // CMD_H
