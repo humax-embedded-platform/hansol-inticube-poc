@@ -18,7 +18,7 @@ static void sendworker_task_handler(void* arg) {
     while (1)
     {
         if(recvworker_waitlist_size(&sw->rev_worker) >= MAX_HANDLE_REQUEST_PER_TIME) {
-            usleep(1000);
+            usleep(10*1000);
             continue;
         }
 

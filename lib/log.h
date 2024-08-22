@@ -20,8 +20,8 @@ typedef struct log_client_t
     atomic_int is_initialized;
 } log_client_t;
 
-int  log_init();
+int  log_init(const char* log_path);
 void log_deinit();
 void log_write(char* buff, size_t len);
-void log_config(int id, char* data);
+void log_config(int id, const char* data);
 #endif

@@ -55,7 +55,7 @@ void linklist_add(linklist_t* list, node_t* item) {
     pthread_mutex_unlock(&list->m);
 }
 
-node_t* linklist_find_and_clone(linklist_t* list, int (*condition_cmp)(const void*, const void*), const void* inputcondition, int from_head) {
+node_t* linklist_find_and_remove(linklist_t* list, int (*condition_cmp)(const void*, const void*), const void* inputcondition, int from_head) {
     if (list == NULL || condition_cmp == NULL) return NULL;
 
     pthread_mutex_lock(&list->m);
@@ -64,6 +64,7 @@ node_t* linklist_find_and_clone(linklist_t* list, int (*condition_cmp)(const voi
 
     while (current != NULL) {
         if (condition_cmp(current->data, inputcondition)) {
+            // Clone the node
             node_t* clone = (node_t*)malloc(sizeof(node_t));
             if (clone == NULL) {
                 pthread_mutex_unlock(&list->m);
@@ -72,16 +73,43 @@ node_t* linklist_find_and_clone(linklist_t* list, int (*condition_cmp)(const voi
             }
 
             clone->data = malloc(current->size);
+            if (clone->data == NULL) {
+                free(clone);
+                pthread_mutex_unlock(&list->m);
+                perror("Failed to allocate memory for node data clone");
+                return NULL;
+            }
+
             memcpy(clone->data, current->data, current->size);
+
+            if (current->prev) {
+                current->prev->next = current->next;
+            } else {
+                list->head = current->next;
+            }
+
+            if (current->next) {
+                current->next->prev = current->prev;
+            } else {
+                list->tail = current->prev;
+            }
+
+            free(current->data);
+            free(current);
+
+            list->size--;
+
             pthread_mutex_unlock(&list->m);
-            return clone; 
+            return clone;
         }
+
         current = from_head ? current->next : current->prev;
     }
 
     pthread_mutex_unlock(&list->m);
-    return NULL; 
+    return NULL;
 }
+
 
 void linklist_remove(linklist_t* list, int (*condition_cmp)(const void*, const void*), const void* inputcondition, int from_head) {
     if (list == NULL || condition_cmp == NULL) return;
