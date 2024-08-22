@@ -15,6 +15,9 @@
 #define HTTP_PROTOCOL     1
 #define HTTPS_PROTOCOL    2
 
+#define SOCKET_SEND_BUFFER_MAX  10*1024
+#define SOCKET_RECV_BUFFER_MAX  10*1024
+
 typedef struct hostinfor_t {
     union {
         char ip[IPV4_ADRESS_SIZE];

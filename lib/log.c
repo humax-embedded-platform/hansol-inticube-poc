@@ -13,7 +13,7 @@
 #include <sys/wait.h>
 
 #define LOG_WRITE_RETRY_MAX     5
-#define LOGSERVER_EXECUTABLE_FILE "/usr/bin/logservice"
+#define LOGSERVER_EXECUTABLE_FILE "./logservice"
 
 static log_client_t log_client;
 static task_t       logtask;
