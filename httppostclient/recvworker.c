@@ -37,7 +37,7 @@ static int recvworker_httprespond_timeout_handler(recvworker_t* rw, http_resp_t*
     char buffer[LOG_MESAGE_MAX_SIZE];
 
     if (rsp != NULL) {
-        time_t recv_time = time(NULL) - 10;
+        time_t recv_time = time(NULL);
         struct tm* recv_tm = localtime(&recv_time);
 
         char recv_time_str[64];
@@ -87,6 +87,7 @@ static int recvworker_httprespond_event_handler(recvworker_t* rw, http_resp_t* r
         log_write(buffer, size);
 
         int error = recvworker_analyze_httprespond(msg, len);
+
         printf("Host: %s Port %d Respond Code: %d (Success)\n", rsp->client.host.adress.domain, rsp->client.host.port, error);
         report_add_result(&rw->report, error);
     }
@@ -133,7 +134,6 @@ static void recvworker_remove_from_waitlist(recvworker_t* rw, httpclient_t clien
     }
 
     httpclient_deinit(&client);
-    linklist_remove(rw->wait_resp_list, recvworker_check_client_waiting_cmp, (void*)&client, 0);
 }
 
 static void recvworker_wait_timeout_func(void* arg) {
@@ -141,6 +141,7 @@ static void recvworker_wait_timeout_func(void* arg) {
     int is_sendcompleted = -1;
     int is_waitcompleted = -1;
     int timeout =  RECV_RESPOND_TIMEOUT;
+    int max_timeout_node_handle_count = 0;
     while (1)
     {
         usleep(1000*1000);
@@ -153,15 +154,15 @@ static void recvworker_wait_timeout_func(void* arg) {
         } 
 
         node_t* node = NULL;
+        max_timeout_node_handle_count = 0;
         while (1)
         {
-            node = linklist_find_and_clone(rw->wait_resp_list, recvworker_check_client_timeout_cmp, &timeout, 0);
+            node = linklist_find_and_remove(rw->wait_resp_list, recvworker_check_client_timeout_cmp, &timeout, 0);
             if (node != NULL) {
                 http_resp_t* rsp = (http_resp_t*)node->data;
                 recvworker_httprespond_timeout_handler(rw, rsp,NULL, 0);
                 recvworker_remove_from_waitlist(rw, rsp->client);
                 link_list_node_deinit(node);
-                usleep(1000);
             } else {
                 break;
             }
@@ -209,7 +210,7 @@ static void recvworker_wait_respond_func(void* arg) {
                     buffer[bytes_read] = '\0';
                 }
 
-                node = linklist_find_and_clone(rw->wait_resp_list, recvworker_check_client_waiting_cmp, &client, 1);
+                node = linklist_find_and_remove(rw->wait_resp_list, recvworker_check_client_waiting_cmp, &client, 1);
                 if (node) {
                     http_resp_t* rsp = (http_resp_t*)node->data;
                     recvworker_httprespond_event_handler(rw, rsp, buffer, bytes_read);

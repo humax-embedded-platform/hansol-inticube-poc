@@ -137,7 +137,7 @@ void log_worker_func(void* arg) {
     }
 }
 
-int log_init(char* log_path) {
+int log_init(const char* log_path) {
 
     if(start_log_server() < 0) {
         return -1;
@@ -222,7 +222,7 @@ void log_write(char* buff, size_t len) {
     buffer_write(&log_client.buffer, buff, len);
 }
 
-void log_config(int id, char* data) {
+void log_config(int id,const char* data) {
     int sockfd;
     struct sockaddr_un addr;
     config_msg_t msg;

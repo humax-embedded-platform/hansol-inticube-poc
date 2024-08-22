@@ -9,10 +9,10 @@
 #include <stdatomic.h>
 #include <time.h>
 
-#define MAX_RESPOND_PER_TIME  10
-#define RECV_RESPOND_TIMEOUT 30
-
-#define REQUEST_WAIT_RESP_TIMEOUT_ERR   28
+#define MAX_RESPOND_PER_TIME  5  // socket handle 10 received message per time
+#define RECV_RESPOND_TIMEOUT 30 // 30s
+#define REQUEST_WAIT_RESP_TIMEOUT_ERR   28 //respond timeout code
+#define MAX_TIMEOUT_NODE_CHECK_PER_TIME 10
 
 typedef struct http_resp_t {
     time_t send_time;

@@ -37,6 +37,7 @@ void buffer_write_with_retry(buffer_t* cb, const char* data, size_t len, int ret
     }
 
     if (cb->count == cb->capacity) {
+        printf("buffer_write_with_retry full\n");
         free(cb->entries[cb->head].data);
         cb->entries[cb->head].data = NULL;
         cb->entries[cb->head].size = 0;
