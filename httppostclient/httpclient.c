@@ -24,6 +24,22 @@ static int httpclient_init_with_ipv4(httpclient_t* httpclient, hostinfor_t host)
         return -1;
     }
 
+    // Set socket buffer sizes
+    int recv_buffer_size = SOCKET_RECV_BUFFER_MAX;
+    int send_buffer_size = SOCKET_SEND_BUFFER_MAX;
+
+    if (setsockopt(httpclient->sockfd, SOL_SOCKET, SO_RCVBUF, &recv_buffer_size, sizeof(recv_buffer_size)) < 0) {
+        perror("Setting SO_RCVBUF failed");
+        close(httpclient->sockfd);
+        return -1;
+    }
+
+    if (setsockopt(httpclient->sockfd, SOL_SOCKET, SO_SNDBUF, &send_buffer_size, sizeof(send_buffer_size)) < 0) {
+        perror("Setting SO_SNDBUF failed");
+        close(httpclient->sockfd);
+        return -1;
+    }
+
     int flags = fcntl(httpclient->sockfd, F_GETFL, 0);
     if (flags == -1) {
         perror("fcntl(F_GETFL) failed");
