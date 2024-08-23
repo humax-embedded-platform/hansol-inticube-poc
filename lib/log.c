@@ -57,7 +57,6 @@ static void stop_log_server(void) {
         return;
     }
 
-
     int status;
     pid_t result = waitpid(log_client.logserver_pid, &status, 0);
 
