@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 
+enable_testing()
+
 # Project name and version
 project(pov_postclient VERSION 1.0)
 
@@ -16,3 +18,4 @@ endif()
 add_subdirectory(lib)
 add_subdirectory(httppostclient)
 add_subdirectory(logservice)
+add_subdirectory(unittest)
