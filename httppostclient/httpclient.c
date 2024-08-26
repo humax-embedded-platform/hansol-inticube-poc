@@ -198,6 +198,7 @@ int httpclient_send_post_msg(httpclient_t* httpclient, char* msg) {
                 continue;
             } else {
                 perror("send");
+                httprequest_deinit(&req);
                 return -1;
             }
         }

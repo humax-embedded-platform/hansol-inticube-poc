@@ -45,6 +45,7 @@ void buffer_write_with_retry(buffer_t* cb, const char* data, size_t len, int ret
 
         cb->head = (cb->head + 1) % cb->capacity;
         cb->count--;
+
     }
 
     cb->entries[cb->tail].data = (char*)malloc(len);

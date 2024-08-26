@@ -88,6 +88,11 @@ static int recvworker_httprespond_timeout_handler(recvworker_t* rw, http_resp_t*
                  "Send Time: %s, Receive Time (Timeout - 10s): %s, Host Info: IP = %s, Port = %d, Sent Message: %s, Message: NULL (Timeout)\n",
                  send_time_str, recv_time_str, rsp->client.host.adress.domain, rsp->client.host.port, sendmsg_content);
 
+        if(log_len >= LOG_MESAGE_MAX_SIZE) {
+            buffer[LOG_MESAGE_MAX_SIZE -1] = '\0';
+            log_len = LOG_MESAGE_MAX_SIZE -1;
+        }
+
         log_write(buffer, log_len);
 
         printf("Host: %s Port %d Respond Code: %d (Timeout)\n", rsp->client.host.adress.domain, rsp->client.host.port, 28);
@@ -114,13 +119,17 @@ static int recvworker_httprespond_event_handler(recvworker_t* rw, http_resp_t* r
 
         const char* sendmsg_content = rsp->sendmsg ? rsp->sendmsg->msg : "No message content";
 
-        int size = snprintf(buffer, sizeof(buffer),
+        int log_len = snprintf(buffer, sizeof(buffer),
                  "Send Time: %s, Receive Time: %s, Host Info: IP = %s, Port = %d, Sent Message: %s, Received Message: %.*s",
                  send_time_str, recv_time_str, rsp->client.host.adress.domain, rsp->client.host.port,
                  sendmsg_content, len, msg);
 
-        log_write(buffer, size);
+        if(log_len >= LOG_MESAGE_MAX_SIZE) {
+            buffer[LOG_MESAGE_MAX_SIZE -1] = '\0';
+            log_len = LOG_MESAGE_MAX_SIZE -1;
+        }
 
+        log_write(buffer, log_len);
         int error = recvworker_analyze_httprespond(msg, len);
 
         printf("Host: %s Port %d Respond Code: %d (Success)\n", rsp->client.host.adress.domain, rsp->client.host.port, error);

@@ -82,8 +82,6 @@ int sendworker_init(sendworker_t* sw) {
         }
     }
 
-    printf("sendworker_init: Initialization complete\n");
-
     return 0;
 }
 
