@@ -4,9 +4,6 @@
 #include "cmd.h"
 #include "config.h"
 
-#define MAX_INPUT_SIZE 1024
-#define MAX_ARGS 128
-
 static void cmd_print_usage(char* program_name) {
     printf("Usage: %s --request <number_of_requests> --input <input message> [--host <host_file>] [--log <log_folder>] [--help]\n", program_name);
     printf("  --request:  Number of requests to process (mandatory)\n");
