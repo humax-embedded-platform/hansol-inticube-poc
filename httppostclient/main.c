@@ -13,8 +13,6 @@ int main(int argc, char* argv[]) {
     dbclient db;
     sendworker_t sendworker;
     usermsg_t msg;
-    clock_t start_time, end_time;
-    double elapsed_time_ms;
 
     if (cmd_parser(argc, argv) < 0) {
         return -1;
@@ -39,8 +37,6 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    start_time = clock();
-
     sendworker_set_hostdb(&sendworker, &db);
     sendworker_set_msg(&sendworker, &msg);
     sendworker_set_request_count(&sendworker, config_get_request_count());
@@ -54,10 +50,6 @@ int main(int argc, char* argv[]) {
     }
 
     sendworker_deinit(&sendworker);
-
-    end_time = clock();
-    elapsed_time_ms = (double)(end_time - start_time) / CLOCKS_PER_SEC * 1000;
-    printf("Send time: %.2f milliseconds\n", elapsed_time_ms);
 
     dbclient_deinit(&db);
     message_deinit(&msg);

@@ -70,7 +70,7 @@ int sendworker_init(sendworker_t* sw) {
     }
 
     sendtask.task_handler = sendworker_task_handler;
-    sendtask.arg = sw;  // Pass the sendworker struct to the task handler
+    sendtask.arg = sw;
 
     for (int i = 0; i < MAX_SEND_WORKER; ++i) {
         if (worker_init(&sw->workers[i], &sendtask) != 0) {
