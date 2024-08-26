@@ -14,7 +14,7 @@ task_t logrecv_task;
 
 static void logrecv_worker_func(void* arg) {
     logrecv_t* receiver = (logrecv_t*)arg;
-    char buffer[1024*21];
+    char buffer[1024*50];
 
     while (1) {
         ssize_t bytes_received = recv(receiver->logrecv_fd, buffer, sizeof(buffer), 0);
