@@ -1,17 +1,23 @@
-#include "recvworker.h"
-#include "log.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/epoll.h>
 #include <errno.h>
 #include <string.h>
-#include <stdatomic.h>
 #include <arpa/inet.h>
+#include <time.h>
+#include <sys/time.h>
+#include "recvworker.h"
+#include "log.h"
+#include "userdbg.h"
+#include "report.h"
 
+#define RECV_WORKER_STATUS_INPROCESS 0
+#define RECV_WORKER_STATUS_DONE 1
 
 static task_t revctask;
 static task_t timeout_task;
+
 
 static int recvworker_analyze_httprespond(char* msg, int len) {
     if (len <= 0 || msg == NULL) {
@@ -53,10 +59,15 @@ static int recvworker_httprespond_timeout_handler(recvworker_t* rw, http_resp_t*
                  "Send Time: %s, Receive Time (Timeout - 10s): %s, Host Info: IP = %s, Port = %d, Sent Message: %s, Message: NULL (Timeout)\n",
                  send_time_str, recv_time_str, rsp->client.host.adress.domain, rsp->client.host.port, sendmsg_content);
 
+        if(log_len >= LOG_MESAGE_MAX_SIZE) {
+            buffer[LOG_MESAGE_MAX_SIZE -1] = '\0';
+            log_len = LOG_MESAGE_MAX_SIZE -1;
+        }
+
         log_write(buffer, log_len);
 
-        printf("Host: %s Port %d Respond Code: %d (Timeout)\n", rsp->client.host.adress.domain, rsp->client.host.port, 28);
-        report_add_result(&rw->report, 28);
+        LOG_DBG("Host: %s Port %d Respond Code: %d (Timeout)\n", rsp->client.host.adress.domain, rsp->client.host.port, 28);
+        report_add_resp_code(28);
     }
 
     return 0;
@@ -79,17 +90,21 @@ static int recvworker_httprespond_event_handler(recvworker_t* rw, http_resp_t* r
 
         const char* sendmsg_content = rsp->sendmsg ? rsp->sendmsg->msg : "No message content";
 
-        int size = snprintf(buffer, sizeof(buffer),
+        int log_len = snprintf(buffer, sizeof(buffer),
                  "Send Time: %s, Receive Time: %s, Host Info: IP = %s, Port = %d, Sent Message: %s, Received Message: %.*s",
                  send_time_str, recv_time_str, rsp->client.host.adress.domain, rsp->client.host.port,
                  sendmsg_content, len, msg);
 
-        log_write(buffer, size);
+        if(log_len >= LOG_MESAGE_MAX_SIZE) {
+            buffer[LOG_MESAGE_MAX_SIZE -1] = '\0';
+            log_len = LOG_MESAGE_MAX_SIZE -1;
+        }
 
+        log_write(buffer, log_len);
         int error = recvworker_analyze_httprespond(msg, len);
 
-        printf("Host: %s Port %d Respond Code: %d (Success)\n", rsp->client.host.adress.domain, rsp->client.host.port, error);
-        report_add_result(&rw->report, error);
+        LOG_DBG("Host: %s Port %d Respond Code: %d (Success)\n", rsp->client.host.adress.domain, rsp->client.host.port, error);
+        report_add_resp_code(error);
     }
 
     return 0;
@@ -130,10 +145,20 @@ static int recvworker_check_client_waiting_cmp(void *current, void* input) {
 
 static void recvworker_remove_from_waitlist(recvworker_t* rw, httpclient_t client) {
     if (epoll_ctl(rw->epoll_fd, EPOLL_CTL_DEL, client.sockfd, NULL) == -1) {
-        perror("epoll_ctl: EPOLL_CTL_DEL");
+        LOG_DBG("epoll_ctl: EPOLL_CTL_DEL");
     }
 
     httpclient_deinit(&client);
+}
+
+static int recvworker_get_status(recvworker_t* rw) {
+    int is_completed = RECV_WORKER_STATUS_DONE;
+    if(rw != NULL) {
+        pthread_mutex_lock(&rw->m);
+        is_completed = rw->is_completed;
+        pthread_mutex_unlock(&rw->m);
+    }
+    return is_completed;
 }
 
 static void recvworker_wait_timeout_func(void* arg) {
@@ -146,12 +171,12 @@ static void recvworker_wait_timeout_func(void* arg) {
     {
         usleep(1000*1000);
 
-        is_sendcompleted = atomic_load(&rw->is_completed);
+        is_sendcompleted = recvworker_get_status(rw);
         is_waitcompleted  = linklist_isempty(rw->wait_resp_list);
 
         if (is_sendcompleted == 1 && is_waitcompleted == 1) {
             break;
-        } 
+        }
 
         node_t* node = NULL;
         max_timeout_node_handle_count = 0;
@@ -162,7 +187,7 @@ static void recvworker_wait_timeout_func(void* arg) {
                 http_resp_t* rsp = (http_resp_t*)node->data;
                 recvworker_httprespond_timeout_handler(rw, rsp,NULL, 0);
                 recvworker_remove_from_waitlist(rw, rsp->client);
-                link_list_node_deinit(node);
+                linklist_node_deinit(node);
             } else {
                 break;
             }
@@ -181,16 +206,17 @@ static void recvworker_wait_respond_func(void* arg) {
     ssize_t bytes_read = 0;
 
     while (1) {
-        is_sendcompleted = atomic_load(&rw->is_completed);
+        is_sendcompleted = recvworker_get_status(rw);
         is_waitcompleted  = linklist_isempty(rw->wait_resp_list);
 
         if (is_sendcompleted == 1 && is_waitcompleted == 1) {
+            report_print_result();
             break;
         }
 
         int nfds = epoll_wait(rw->epoll_fd, events, MAX_RESPOND_PER_TIME, 100);
         if (nfds < 0) {
-            printf("epoll_wait error %d\n", nfds);
+            LOG_DBG("epoll_wait error %d\n", nfds);
             break;
         }
 
@@ -215,7 +241,7 @@ static void recvworker_wait_respond_func(void* arg) {
                     http_resp_t* rsp = (http_resp_t*)node->data;
                     recvworker_httprespond_event_handler(rw, rsp, buffer, bytes_read);
                     recvworker_remove_from_waitlist(rw, rsp->client);
-                    link_list_node_deinit(node);
+                    linklist_node_deinit(node);
                 }
             }
         }
@@ -227,23 +253,26 @@ int recvworker_init(recvworker_t* rw) {
         return -1;
     }
 
-    atomic_init(&rw->is_completed, 0);
-
     rw->epoll_fd = epoll_create1(0);
     if (rw->epoll_fd == -1) {
-        printf("recvworker_init epoll_create1 error");
+        LOG_DBG("recvworker_init epoll_create1 error");
         return -1;
     }
 
+    if (pthread_mutex_init(&rw->m,NULL) != 0) {
+        LOG_DBG("recvworker_init: Mutex init failed");
+        return -1;
+    }
+
+    rw->is_completed = RECV_WORKER_STATUS_INPROCESS;
+
     rw->wait_resp_list = (linklist_t*)malloc(sizeof(linklist_t));
     linklist_init(rw->wait_resp_list);
-    report_init(&rw->report);
 
     revctask.task_handler = recvworker_wait_respond_func;
     revctask.arg = rw;
     if (worker_init(&rw->recv_thread, &revctask) != 0) {
         linklist_deinit(rw->wait_resp_list);
-        report_deinit(&rw->report);
         close(rw->epoll_fd);
         return -1;
     }
@@ -253,7 +282,6 @@ int recvworker_init(recvworker_t* rw) {
     if (worker_init(&rw->timeout_thread, &timeout_task) != 0) {
         worker_deinit(&rw->recv_thread);
         linklist_deinit(rw->wait_resp_list);
-        report_deinit(&rw->report);
         close(rw->epoll_fd);
         return -1;
     }
@@ -269,11 +297,9 @@ void recvworker_deinit(recvworker_t* rw) {
     worker_deinit(&rw->recv_thread);
     worker_deinit(&rw->timeout_thread);
     linklist_deinit(rw->wait_resp_list);
+    pthread_mutex_destroy(&rw->m);
     free(rw->wait_resp_list);
     close(rw->epoll_fd);
-
-    report_print_result(&rw->report);
-    report_deinit(&rw->report);
 }
 
 int recvworker_add_to_waitlist(recvworker_t* rw, httpclient_t client, usermsg_t* sendmsg) {
@@ -286,7 +312,7 @@ int recvworker_add_to_waitlist(recvworker_t* rw, httpclient_t client, usermsg_t*
     event.data.fd = client.sockfd;
 
     if (epoll_ctl(rw->epoll_fd, EPOLL_CTL_ADD, client.sockfd, &event) == -1) {
-        printf("recvworker_add_to_waitlist error %d", client.sockfd);
+        LOG_DBG("recvworker_add_to_waitlist error %d", client.sockfd);
         return -1;
     }
 
@@ -296,7 +322,7 @@ int recvworker_add_to_waitlist(recvworker_t* rw, httpclient_t client, usermsg_t*
     resp.sendmsg = sendmsg;
 
     node_t* node = (node_t*)malloc(sizeof(node_t));
-    link_list_node_init(node, (void*)&resp, sizeof(resp));
+    linklist_node_init(node, (void*)&resp, sizeof(resp));
     linklist_add(rw->wait_resp_list, node);
 
     return 0;
@@ -304,7 +330,9 @@ int recvworker_add_to_waitlist(recvworker_t* rw, httpclient_t client, usermsg_t*
 
 void recvworker_set_completed(recvworker_t* rw) {
     if (rw != NULL) {
-        atomic_store(&rw->is_completed, 1);
+        pthread_mutex_lock(&rw->m);
+        rw->is_completed = RECV_WORKER_STATUS_DONE;
+        pthread_mutex_unlock(&rw->m);
     }
 }
 

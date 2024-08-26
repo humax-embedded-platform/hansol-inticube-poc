@@ -1,0 +1,1 @@
+/usr/bin/cc    CMakeFiles/test_buffer.dir/test_buffer.c.o  -o test_buffer -Wl,-rpath,/usr/local/lib64 /usr/local/lib64/libcmocka.so.0.8.0 ../../lib/libhttppostlib.a -lpthread 

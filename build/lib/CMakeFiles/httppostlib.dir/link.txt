@@ -1,0 +1,2 @@
+/usr/bin/ar qc libhttppostlib.a  CMakeFiles/httppostlib.dir/buffer.c.o CMakeFiles/httppostlib.dir/log.c.o CMakeFiles/httppostlib.dir/worker.c.o CMakeFiles/httppostlib.dir/userdbg.c.o
+/usr/bin/ranlib libhttppostlib.a

@@ -17,9 +17,28 @@ add_executable(httppostclient
     report.c
 )
 
+add_library(httppostclient_test STATIC
+    dbclient.c
+    httpclient.c
+    httprequest.c
+    linkedlist.c
+    message.c
+    recvworker.c
+    sendworker.c
+    textdb.c
+    cmd.c
+    config.c
+    report.c
+)
+
 # Link the static library to the executable
 target_link_libraries(httppostclient PRIVATE httppostlib)
 
 # Include directories for the executable
 target_include_directories(httppostclient PRIVATE ${CMAKE_SOURCE_DIR}/lib)
 target_include_directories(httppostclient PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(httppostclient_test PRIVATE ${CMAKE_SOURCE_DIR}/lib)
+target_include_directories(httppostclient_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_link_libraries(httppostclient PRIVATE httppostlib)
+target_link_libraries(httppostclient_test PRIVATE httppostlib)

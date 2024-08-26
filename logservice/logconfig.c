@@ -8,10 +8,10 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <errno.h>
-
+#include <limits.h>
 
 #define DEFAULT_LOG_FILE_PATH  "./"
-
+#define LOGSERVER_EXECUTABLE_PATH_MAX 1024
 
 static logconfig_t      config;
 static logconfig_item_t config_item;
@@ -25,7 +25,27 @@ static logconfig_handler_t handlers[CONFIG_MAX] = {
 };
 
 static void config_init_default() {
-    strncpy(config_item.log_path, DEFAULT_LOG_FILE_PATH, sizeof(config_item.log_path) - 1);
+    char exe_path[LOGSERVER_EXECUTABLE_PATH_MAX];
+    ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
+
+    if (len == -1) {
+        strncpy(config_item.log_path, DEFAULT_LOG_FILE_PATH, sizeof(config_item.log_path) - 1);
+        config_item.log_path[sizeof(config_item.log_path) - 1] = '\0';
+        return;
+    }
+
+    exe_path[len] = '\0';
+
+    char* last_slash = strrchr(exe_path, '/');
+    if (last_slash != NULL) {
+        *(last_slash + 1) = '\0';
+    } else {
+        strncpy(config_item.log_path, DEFAULT_LOG_FILE_PATH, sizeof(config_item.log_path) - 1);
+        config_item.log_path[sizeof(config_item.log_path) - 1] = '\0';
+        return;
+    }
+
+    strncpy(config_item.log_path, exe_path, sizeof(config_item.log_path) - 1);
     config_item.log_path[sizeof(config_item.log_path) - 1] = '\0';
 }
 
@@ -37,6 +57,15 @@ static void config_log_path(config_msg_t* msg) {
     }
 }
 
+static int logconfig_is_completed() {
+    int is_completed = 0;
+    pthread_mutex_lock(&config.m);
+    is_completed = config.is_completed;
+    pthread_mutex_unlock(&config.m);
+
+    return is_completed;
+}
+
 static void logconfig_receiver(void* arg) {
     logconfig_t* config = (logconfig_t*)arg;
     config_msg_t msg;
@@ -44,22 +73,18 @@ static void logconfig_receiver(void* arg) {
     int is_completed = false;
 
     while (1) {
-
-        is_completed = atomic_load(&config->is_completed);
-        if(is_completed == 1) {
+        if(logconfig_is_completed() == 1) {
             break;
         }
 
         recv_len = recvfrom(config->config_sock_fd, &msg, sizeof(msg), 0, NULL, NULL);
         if (recv_len < 0) {
-            perror("recvfrom failed");
             continue;
         }
 
         if (msg.config_id >= 0 && msg.config_id < CONFIG_MAX && handlers[msg.config_id] != NULL) {
             handlers[msg.config_id](&msg);
         } else {
-            printf("unknown config\n");
         }
     }
 }
@@ -72,7 +97,6 @@ int logconfig_init(void) {
 
     config.config_sock_fd = socket(AF_UNIX, SOCK_DGRAM, 0); 
     if (config.config_sock_fd < 0) {
-        perror("Socket initialization failed");
         return -1;
     }
 
@@ -83,18 +107,20 @@ int logconfig_init(void) {
     unlink(CONFIG_SOCKET_PATH);
 
     if (bind(config.config_sock_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
-        perror("Socket bind failed");
         close(config.config_sock_fd);
         return -1;
     }
 
-    atomic_store(&config.is_completed, 0);
+    if (pthread_mutex_init(&config.m, NULL) != 0) {
+        close(config.config_sock_fd);
+        return -1;
+    }
+
+    config.is_completed = 0;
 
     config_task.task_handler = logconfig_receiver;
     config_task.arg = (void*)&config;
-
     if (worker_init(&config.config_worker, &config_task) < 0) {
-        perror("Failed to initialize worker");
         close(config.config_sock_fd);
         return -1;
     }
@@ -104,6 +130,7 @@ int logconfig_init(void) {
 
 int logconfig_deinit(void) {
     worker_deinit(&config.config_worker);
+    pthread_mutex_destroy(&config.m);
     close(config.config_sock_fd);
 }
 
@@ -113,7 +140,6 @@ char *logconfig_get_path(void) {
 
 void logconfig_register_config_changed(logconfig_changed_cb_t cb) {
     if (cb == NULL) {
-        fprintf(stderr, "Error: Attempted to register a NULL callback\n");
         return;
     }
 

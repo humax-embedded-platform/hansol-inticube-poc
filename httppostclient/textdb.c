@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include "userdbg.h"
 
 #define MAX_LINE_LENGTH 256
 
@@ -51,13 +52,13 @@ uint16_t get_host_length(const char* str) {
 
 int textdb_init(textdb_t* textdb, const char* dbpath) {
     if (textdb == NULL || dbpath == NULL) {
-        fprintf(stderr, "textdb_init: Invalid arguments\n");
+        LOG_DBG("textdb_init: Invalid arguments\n");
         return -1;
     }
 
     FILE* file = fopen(dbpath, "r");
     if (file == NULL) {
-        perror("textdb_init: Failed to open file");
+        LOG_DBG("textdb_init: Failed to open file");
         return -1;
     }
 
@@ -67,16 +68,18 @@ int textdb_init(textdb_t* textdb, const char* dbpath) {
 
     char* data = (char*)malloc(file_size*2);
     if (data == NULL) {
-        perror("textdb_init: Failed to allocate memory");
+        LOG_DBG("textdb_init: Failed to allocate memory");
         fclose(file);
         return -1;
     }
 
     char line[MAX_LINE_LENGTH];
+    char addr[MAX_LINE_LENGTH];
     size_t offset = 0;
     uint16_t port = 0;
     char address_type = HOST_IPV4_TYPE;
     char protocol = HTTP_PROTOCOL;
+    int host_len = 0;
     while (fgets(line, sizeof(line), file)) {
         size_t line_len = strlen(line);
         if (line[line_len - 1] == '\n') {
@@ -85,10 +88,14 @@ int textdb_init(textdb_t* textdb, const char* dbpath) {
         }
 
         port = get_port_info(line);
+        host_len = get_host_length(line);
 
-        if (is_ipv4_address(line)) {
+        memcpy(addr,line,host_len);
+        addr[host_len] = '\0';
+
+        if (is_ipv4_address(addr)) {
             if(port == 0) {
-                printf("host ip should include port number: %s\n", line);
+                LOG_DBG("host ip should include port number: %s\n", line);
                 continue;
             }
 
@@ -97,24 +104,22 @@ int textdb_init(textdb_t* textdb, const char* dbpath) {
         } else if(is_http_address(line)) {
             if(port == 0) {
                 port = HTTP_DEFAILT_PORT;
-                address_type = HOST_DOMAIN_TYPE;
-                protocol = HTTP_PROTOCOL;
             }
+            address_type = HOST_DOMAIN_TYPE;
+            protocol = HTTP_PROTOCOL;
         } else if(is_https_address(line)){
             if(port == 0) {
                 port = HTTPS_DEFAULT_PORT;
-                address_type = HOST_DOMAIN_TYPE;
-                protocol = HTTPS_PROTOCOL;
             }
+            address_type = HOST_DOMAIN_TYPE;
+            protocol = HTTPS_PROTOCOL;
         } else {
             if(port == 0) { 
                 port = HTTP_DEFAILT_PORT;
-                address_type = HOST_DOMAIN_TYPE;
-                protocol = HTTP_PROTOCOL;
             }
+            address_type = HOST_DOMAIN_TYPE;
+            protocol = HTTP_PROTOCOL;
         }
-
-        int host_len = get_host_length(line);
 
         uint16_t total_len = sizeof(uint16_t) + sizeof(uint16_t) + sizeof(char) + sizeof(char) + host_len;
 
@@ -132,11 +137,13 @@ int textdb_init(textdb_t* textdb, const char* dbpath) {
 
         memcpy((char*)data + offset, line, host_len);
         offset += host_len;
+
+        LOG_DBG("%s  port %d address_type %d protocol %d\n",line, port, address_type, protocol);
     }
 
     data = realloc(data, offset);
     if (!data) {
-        perror("Failed to reallocate memory");
+        LOG_DBG("Failed to reallocate memory");
         free(data);
         fclose(file);
         return -1;
@@ -147,7 +154,7 @@ int textdb_init(textdb_t* textdb, const char* dbpath) {
     textdb->read_offset = 0;
 
     if (pthread_mutex_init(&textdb->read_lock, NULL) != 0) {
-        perror("textdb_init: Mutex initialization failed");
+        LOG_DBG("textdb_init: Mutex initialization failed");
         free(data);
         fclose(file);
         return -1;
@@ -159,7 +166,7 @@ int textdb_init(textdb_t* textdb, const char* dbpath) {
 
 int textdb_deinit(textdb_t* textdb) {
     if (textdb == NULL) {
-        fprintf(stderr, "textdb_deinit: Invalid argument\n");
+        LOG_DBG("textdb_deinit: Invalid argument\n");
         return -1;
     }
 
@@ -167,9 +174,9 @@ int textdb_deinit(textdb_t* textdb) {
         free(textdb->data);
         textdb->data = NULL;
         textdb->size = 0;
-        printf("textdb_deinit: Done\n");
+        LOG_DBG("textdb_deinit: Done\n");
     } else {
-        printf("textdb_deinit: No data to free\n");
+        LOG_DBG("textdb_deinit: No data to free\n");
     }
 
     pthread_mutex_destroy(&textdb->read_lock);
@@ -183,12 +190,12 @@ int textdb_gethost(textdb_t* textdb, hostinfor_t* host) {
     uint16_t current_read_offset = 0;
 
     if (textdb == NULL || host == NULL) {
-        fprintf(stderr, "textdb_gethost: Invalid arguments\n");
+        LOG_DBG("textdb_gethost: Invalid arguments\n");
         return -1;
     }
 
     if (pthread_mutex_lock(&textdb->read_lock) != 0) {
-        perror("textdb_gethost: Mutex lock failed");
+        LOG_DBG("textdb_gethost: Mutex lock failed");
         return -1;
     }
 

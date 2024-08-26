@@ -1,0 +1,24 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+../httppostclient/message.h
+
+/home/hvn/workspace/tommy_unit_test/hansol-inticube-poc/unittest/httppostclienttest/test_message.c
+stdarg.h
+-
+stddef.h
+-
+setjmp.h
+-
+cmocka.h
+-
+message.h
+/home/hvn/workspace/tommy_unit_test/hansol-inticube-poc/unittest/httppostclienttest/message.h
+
+/usr/local/include/cmocka.h
+

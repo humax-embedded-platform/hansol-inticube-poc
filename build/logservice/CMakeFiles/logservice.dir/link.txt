@@ -1,0 +1,1 @@
+/usr/bin/cc    CMakeFiles/logservice.dir/main.c.o CMakeFiles/logservice.dir/logrecv.c.o CMakeFiles/logservice.dir/logwriter.c.o CMakeFiles/logservice.dir/logconfig.c.o  -o logservice ../lib/libhttppostlib.a -lpthread 

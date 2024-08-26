@@ -11,6 +11,7 @@
 #include <arpa/inet.h>
 #include "httpclient.h"
 #include "httprequest.h"
+#include "userdbg.h"
 
 static int httpclient_init_with_ipv4(httpclient_t* httpclient, hostinfor_t host) {
     if (httpclient == NULL) {
@@ -20,35 +21,34 @@ static int httpclient_init_with_ipv4(httpclient_t* httpclient, hostinfor_t host)
     httpclient->host   = host;
     httpclient->sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (httpclient->sockfd < 0) {
-        perror("Socket creation failed");
+        LOG_DBG("httpclient_init_with_ipv4: Socket creation failed\n");
         return -1;
     }
 
-    // Set socket buffer sizes
     int recv_buffer_size = SOCKET_RECV_BUFFER_MAX;
     int send_buffer_size = SOCKET_SEND_BUFFER_MAX;
 
     if (setsockopt(httpclient->sockfd, SOL_SOCKET, SO_RCVBUF, &recv_buffer_size, sizeof(recv_buffer_size)) < 0) {
-        perror("Setting SO_RCVBUF failed");
+        LOG_DBG("httpclient_init_with_ipv4: Setting SO_RCVBUF failed\n");
         close(httpclient->sockfd);
         return -1;
     }
 
     if (setsockopt(httpclient->sockfd, SOL_SOCKET, SO_SNDBUF, &send_buffer_size, sizeof(send_buffer_size)) < 0) {
-        perror("Setting SO_SNDBUF failed");
+        LOG_DBG("httpclient_init_with_ipv4: Setting SO_SNDBUF failed\n");
         close(httpclient->sockfd);
         return -1;
     }
 
     int flags = fcntl(httpclient->sockfd, F_GETFL, 0);
     if (flags == -1) {
-        perror("fcntl(F_GETFL) failed");
+        LOG_DBG("fcntl(F_GETFL) failed");
         close(httpclient->sockfd);
         return -1;
     }
 
     if (fcntl(httpclient->sockfd, F_SETFL, flags | O_NONBLOCK) == -1) {
-        perror("fcntl(F_SETFL) failed");
+        LOG_DBG("httpclient_init_with_ipv4: fcntl(F_SETFL) failed\n");
         close(httpclient->sockfd);
         return -1;
     }
@@ -59,7 +59,7 @@ static int httpclient_init_with_ipv4(httpclient_t* httpclient, hostinfor_t host)
     server_addr.sin_port = htons(host.port);
 
     if (inet_pton(AF_INET, host.adress.ip, &server_addr.sin_addr) <= 0) {
-        perror("Invalid IP address");
+        LOG_DBG("httpclient_init_with_ipv4: Invalid IP address\n");
         close(httpclient->sockfd);
         return -1;
     }
@@ -67,7 +67,7 @@ static int httpclient_init_with_ipv4(httpclient_t* httpclient, hostinfor_t host)
     int ret = connect(httpclient->sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr));
     if (ret < 0) {
         if (errno != EINPROGRESS) {
-            perror("Connection failed");
+            LOG_DBG("httpclient_init_with_ipv4: Connection failed");
             close(httpclient->sockfd);
             return -1;
         }
@@ -83,22 +83,21 @@ static int httpclient_init_with_domain(httpclient_t* httpclient, hostinfor_t hos
 
     httpclient->host = host;
 
-    // Create the socket
     httpclient->sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (httpclient->sockfd < 0) {
-        perror("Socket creation failed");
+        LOG_DBG("httpclient_init_with_domain: Socket creation failed\n");
         return -1;
     }
 
     int flags = fcntl(httpclient->sockfd, F_GETFL, 0);
     if (flags == -1) {
-        perror("fcntl(F_GETFL) failed");
+        LOG_DBG("httpclient_init_with_domain: fcntl(F_GETFL) failed\n");
         close(httpclient->sockfd);
         return -1;
     }
 
     if (fcntl(httpclient->sockfd, F_SETFL, flags | O_NONBLOCK) == -1) {
-        perror("fcntl(F_SETFL) failed");
+        LOG_DBG("httpclient_init_with_domain: fcntl(F_SETFL) failed\n");
         close(httpclient->sockfd);
         return -1;
     }
@@ -110,7 +109,6 @@ static int httpclient_init_with_domain(httpclient_t* httpclient, hostinfor_t hos
 
     int err = getaddrinfo(host.adress.domain, NULL, &hints, &res);
     if (err != 0) {
-        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(err));
         close(httpclient->sockfd);
         return -1;
     }
@@ -126,7 +124,7 @@ static int httpclient_init_with_domain(httpclient_t* httpclient, hostinfor_t hos
     int ret = connect(httpclient->sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr));
     if (ret < 0) {
         if (errno != EINPROGRESS) {
-            perror("Connection failed");
+            LOG_DBG("httpclient_init_with_domain: Connection failed\n");
             close(httpclient->sockfd);
             return -1;
         }
@@ -153,7 +151,7 @@ int httpclient_deinit(httpclient_t* httpclient) {
     }
 
     if (close(httpclient->sockfd) < 0) {
-        perror("Socket close failed");
+        LOG_DBG("httpclient_deinit: Socket close failed\n");
         return -1;
     }
 
@@ -197,7 +195,7 @@ int httpclient_send_post_msg(httpclient_t* httpclient, char* msg) {
                 usleep(2000);
                 continue;
             } else {
-                perror("send");
+                httprequest_deinit(&req);
                 return -1;
             }
         }

@@ -3,7 +3,6 @@
 
 #include "textdb.h"
 #include "httpclient.h"
-#include <stdatomic.h>  // Include for atomic operations
 #include <pthread.h>   // Include for pthread_mutex_t
 
 typedef enum {

@@ -1,6 +1,3 @@
-#include "log.h"
-#include "worker.h"
-#include "common.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,9 +8,18 @@
 #include <errno.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include "log.h"
+#include <limits.h>
+#include "worker.h"
+#include "common.h"
+#include "userdbg.h"
 
 #define LOG_WRITE_RETRY_MAX     5
-#define LOGSERVER_EXECUTABLE_FILE "./logservice"
+#define LOGSERVER_EXECUTABLE_PATH_MAX 1024
+#define LOGSERVER_EXECUTABLE_FILE "logservice"
+
+#define LOG_INIT_STATUS_INITIALIZED     1
+#define LOG_INIT_STATUS_UNINITIALIZED   0
 
 static log_client_t log_client;
 static task_t       logtask;
@@ -23,20 +29,41 @@ static int  write_buff_count = 0;
 
 static int start_log_server(void) {
     if (log_client.logserver_pid > 0) {
-        printf("Log server is already running with PID: %d\n", log_client.logserver_pid);
+        LOG_DBG("start_log_server: Log server is already running with PID: %d\n", log_client.logserver_pid);
         return -1;
     }
 
+    char exe_path[LOGSERVER_EXECUTABLE_PATH_MAX];
+    ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
+    if (len == -1) {
+        LOG_DBG("start_log_server: Failed to get current executable path\n");
+        return -1;
+    }
+
+    exe_path[len] = '\0';
+
+    char* last_slash = strrchr(exe_path, '/');
+    if (last_slash != NULL) {
+        *(last_slash + 1) = '\0';
+    } else {
+        LOG_DBG("start_log_server: Failed to parse current executable directory\n");
+        return -1;
+    }
+
+    char log_server_path[LOGSERVER_EXECUTABLE_PATH_MAX];
+    snprintf(log_server_path, sizeof(log_server_path), "%s%s", exe_path, LOGSERVER_EXECUTABLE_FILE);
+
+    LOG_DBG("%s\n",log_server_path);
     pid_t pid = fork();
 
     if (pid < 0) {
-        perror("Failed to fork process for log server");
+        LOG_DBG("start_log_server: Failed to fork process for log server");
         return -1;
     }
 
     if (pid == 0) {
-        if (execlp(LOGSERVER_EXECUTABLE_FILE, LOGSERVER_EXECUTABLE_FILE, (char *)NULL) == -1) {
-            perror("Failed to start log server");
+        if (execlp(log_server_path, log_server_path, (char *)NULL) == -1) {
+            perror("start_log_server: Failed to start log server");
             return -1;
         }
     } else {
@@ -48,12 +75,12 @@ static int start_log_server(void) {
 
 static void stop_log_server(void) {
     if (log_client.logserver_pid <= 0) {
-        printf("Log server is not running.\n");
+        LOG_DBG("Log server is not running.\n");
         return;
     }
 
     if (kill(log_client.logserver_pid, SIGTERM) == -1) {
-        perror("Failed to send SIGTERM to log server");
+        LOG_DBG("Failed to send SIGTERM to log server");
         return;
     }
 
@@ -62,6 +89,22 @@ static void stop_log_server(void) {
     pid_t result = waitpid(log_client.logserver_pid, &status, 0);
 
     log_client.logserver_pid = -1;
+}
+
+static int log_set_init_status(int status) {
+    pthread_mutex_lock(&log_client.m);
+    log_client.is_initialized = status;
+    pthread_mutex_unlock(&log_client.m);
+}
+
+static int log_get_init_status() {
+    int status = 0;
+
+    pthread_mutex_lock(&log_client.m);
+    status = log_client.is_initialized;
+    pthread_mutex_unlock(&log_client.m);
+
+    return status;
 }
 
 void log_worker_func(void* arg) {
@@ -119,7 +162,7 @@ void log_worker_func(void* arg) {
                             write_buff_count = 0;
                             break;
                         }
-                        perror("Failed to send log data");
+                        LOG_DBG("Failed to send log data");
                     } else {
                         write_start_index += bytes_written;
                         write_buff_count -= bytes_written;
@@ -128,7 +171,7 @@ void log_worker_func(void* arg) {
                 }
             }
 
-            if(atomic_load(&log_client.is_initialized) == 0) {
+            if(log_get_init_status() == LOG_INIT_STATUS_UNINITIALIZED) {
                 break;
             }
 
@@ -143,28 +186,23 @@ int log_init(const char* log_path) {
         return -1;
     }
 
-    if(atomic_load(&log_client.is_initialized) == 1) {
-        printf("log client is initialized, not need init again\n");
-        return -1;
-    }
-
     buffer_init(&log_client.buffer, LOG_BUFFER_CAPACITY);
 
     log_client.log_fd = socket(AF_UNIX, SOCK_DGRAM, 0);
     if (log_client.log_fd < 0) {
-        perror("Failed to create socket");
+        LOG_DBG("Failed to create socket");
         return -1;
     }
 
     int flags = fcntl(log_client.log_fd, F_GETFL, 0);
     if (flags < 0) {
-        perror("Failed to get socket flags");
+        LOG_DBG("Failed to get socket flags");
         close(log_client.log_fd);
         return -1;
     }
 
     if (fcntl(log_client.log_fd, F_SETFL, flags | O_NONBLOCK) < 0) {
-        perror("Failed to set socket to non-blocking mode");
+        LOG_DBG("Failed to set socket to non-blocking mode");
         close(log_client.log_fd);
         return -1;
     }
@@ -181,12 +219,18 @@ int log_init(const char* log_path) {
     logtask.task_handler = log_worker_func;
     logtask.arg = (void*)&log_client;
     if (worker_init(&log_client.worker, &logtask) < 0) {
-        perror("Failed to initialize worker");
+        LOG_DBG("Failed to initialize worker");
         close(log_client.log_fd);
         return -1;
     }
 
-    atomic_store(&log_client.is_initialized, 1);
+    if (pthread_mutex_init(&log_client.m, NULL) != 0) {
+        LOG_DBG("Mutex initialization failed");
+        close(log_client.log_fd);
+        return -1;
+    }
+
+    log_set_init_status(LOG_INIT_STATUS_INITIALIZED);
 
     if(log_path != NULL) {
         log_config(CONFIG_LOG_PATH, log_path);
@@ -196,8 +240,7 @@ int log_init(const char* log_path) {
 }
 
 void log_deinit() {
-    atomic_store(&log_client.is_initialized, 0);
-
+    log_set_init_status(LOG_INIT_STATUS_UNINITIALIZED);
     worker_deinit(&log_client.worker);
 
     log_entry_t entry;
@@ -206,16 +249,15 @@ void log_deinit() {
         buffer_log_entry_deinit(&entry);
     }
 
+    pthread_mutex_destroy(&log_client.m);
     buffer_deinit(&log_client.buffer);
-
     close(log_client.log_fd);
-
     stop_log_server();
 }
 
 void log_write(char* buff, size_t len) {
-    if (atomic_load(&log_client.is_initialized) == 0) {
-        fprintf(stderr, "Logging is disabled. Cannot write to buffer.\n");
+    if (log_get_init_status() ==  LOG_INIT_STATUS_UNINITIALIZED) {
+        LOG_DBG("Logging is disabled. Cannot write to buffer.\n");
         return;
     }
 
@@ -229,7 +271,7 @@ void log_config(int id,const char* data) {
 
     sockfd = socket(AF_UNIX, SOCK_DGRAM, 0);
     if (sockfd < 0) {
-        perror("socket failed");
+        LOG_DBG("socket failed");
         return;
     }
 
@@ -242,7 +284,7 @@ void log_config(int id,const char* data) {
     msg.data[sizeof(msg.data) - 1] = '\0';
 
     if (sendto(sockfd, &msg, sizeof(msg), 0, (struct sockaddr*)&addr, sizeof(struct sockaddr_un)) < 0) {
-        perror("sendto failed");
+        LOG_DBG("sendto failed");
     }
 
     close(sockfd);

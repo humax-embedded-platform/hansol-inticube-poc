@@ -5,10 +5,18 @@
 #include "dbclient.h"
 #include "message.h"
 #include "recvworker.h"
-#include <stdatomic.h>
+#include "linkedlist.h"
+#include <pthread.h>
 
 #define MAX_SEND_WORKER  10
 #define MAX_HANDLE_REQUEST_PER_TIME 10000
+
+typedef struct failure_request_t
+{
+    int failure_count;
+    int retry_count;
+    hostinfor_t host;
+}failure_request_t;
 
 typedef struct sendworker {
     dbclient*    hostdb;
@@ -16,7 +24,8 @@ typedef struct sendworker {
     worker_t     workers[MAX_SEND_WORKER];
     recvworker_t rev_worker;
     int          request_count;
-    atomic_flag  request_count_check_flag;
+    pthread_mutex_t m;
+    linklist_t   failure_list;
 } sendworker_t;
 
 int sendworker_set_hostdb(sendworker_t* sw, dbclient* db);

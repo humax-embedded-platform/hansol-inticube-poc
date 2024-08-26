@@ -37,7 +37,6 @@ static int logwriter_init_log_file(logwriter_t* writer) {
 
     int new_log_fd = open(filename, O_WRONLY | O_CREAT | O_APPEND, 0644);
     if (new_log_fd < 0) {
-        perror("Failed to open log file");
         return -1;
     }
 
@@ -56,9 +55,12 @@ static void logwriter_worker_func(void* arg) {
 
     while (1) {
         if (buffer_read(&writer->logbuff, &entry) == 0) {
+            if(writer->log_file_fd <= 0 && config_path_changed == 0) {
+                logwriter_init_log_file(writer);
+            }
+
             ssize_t bytes_written = write(writer->log_file_fd, entry.data, entry.size);
             if (bytes_written < 0) {
-                perror("Failed to write log message to file");
             }
             
             buffer_log_entry_deinit(&entry);
@@ -82,13 +84,11 @@ void logwriter_init(logwriter_t *writer) {
 
     writer->log_file_fd = 0;
 
-    logwriter_init_log_file(writer);
     buffer_init(&writer->logbuff, LOG_WRITER_CAPACITY);
 
     logwriter_task.task_handler = logwriter_worker_func;
     logwriter_task.arg = (void*)writer;
     if (worker_init(&writer->writer, &logwriter_task) < 0) {
-        perror("Failed to initialize worker");
         close(writer->log_file_fd);
         buffer_deinit(&writer->logbuff);
         exit(EXIT_FAILURE);

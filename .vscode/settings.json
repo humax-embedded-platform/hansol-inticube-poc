@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "cmocka.h": "c",
+        "worker.h": "c"
+    }
+}

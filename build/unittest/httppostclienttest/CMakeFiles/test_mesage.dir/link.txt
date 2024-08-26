@@ -1,0 +1,1 @@
+/usr/bin/cc    CMakeFiles/test_mesage.dir/test_mesage.c.o  -o test_mesage -Wl,-rpath,/usr/local/lib64 /usr/local/lib64/libcmocka.so.0.8.0 ../../httppostclient/libhttppostclient_test.a ../../lib/libhttppostlib.a -lpthread 

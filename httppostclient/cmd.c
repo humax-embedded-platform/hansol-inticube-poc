@@ -1,11 +1,10 @@
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include "cmd.h"
 #include "config.h"
-
-#define MAX_INPUT_SIZE 1024
-#define MAX_ARGS 128
 
 static void cmd_print_usage(char* program_name) {
     printf("Usage: %s --request <number_of_requests> --input <input message> [--host <host_file>] [--log <log_folder>] [--help]\n", program_name);
@@ -14,6 +13,20 @@ static void cmd_print_usage(char* program_name) {
     printf("  --host:     Path to the host file (mandatory)\n");
     printf("  --log:      Path to the log folder (optional)\n");
     printf("  --help:     Display this help message\n");
+}
+
+static bool is_valid_integer(const char *str) {
+    if (str == NULL || *str == '\0') {
+        return false;
+    }
+
+    for (int i = 0; str[i] != '\0'; i++) {
+        if (!isdigit((unsigned char)str[i])) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 int cmd_parser(int argc, char* argv[]) {
@@ -36,12 +49,19 @@ int cmd_parser(int argc, char* argv[]) {
             return 0;  // No error, just showing the help message
         } else if (strcmp(argv[i], "--request") == 0) {
             if ((i + 1) < argc) {
-                int request_count = atoi(argv[++i]);
-                if (config_set_request_count(request_count) < 0) {
-                    printf("Error: Failed to set request count.\n");
+                const char *request_value = argv[++i];
+
+                if (is_valid_integer(request_value)) {
+                    int request_count = atoi(request_value);
+                    if (config_set_request_count(request_count) < 0) {
+                        printf("Error: Failed to set request count.\n");
+                        return -1;
+                    }
+                    request_found = true;
+                } else {
+                    printf("Error: Invalid value for --request. Please enter a valid integer.\n");
                     return -1;
                 }
-                request_found = true;
             } else {
                 printf("Error: Missing value for --request.\n");
                 return -1;

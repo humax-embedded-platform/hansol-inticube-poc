@@ -4,7 +4,7 @@
 
 #include "worker.h"
 #include "common.h"
-#include <stdatomic.h>
+#include <pthread.h>
 
 typedef struct logconfig_item_t
 {
@@ -15,7 +15,8 @@ typedef struct logconfig_t
 {
     int      config_sock_fd;
     worker_t config_worker;
-    atomic_int is_completed;
+    pthread_mutex_t m;
+    int is_completed;
 } logconfig_t;
 
 typedef void (*logconfig_handler_t)(const config_msg_t*);

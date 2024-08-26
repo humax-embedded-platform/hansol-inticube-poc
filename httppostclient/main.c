@@ -8,17 +8,18 @@
 #include "log.h"
 #include "cmd.h"
 #include "config.h"
+#include "userdbg.h"
 
 int main(int argc, char* argv[]) {
     dbclient db;
     sendworker_t sendworker;
     usermsg_t msg;
-    clock_t start_time, end_time;
-    double elapsed_time_ms;
 
     if (cmd_parser(argc, argv) < 0) {
         return -1;
     }
+
+    userdbg_init();
 
     if(log_init(config_get_log_folder()) <0 ) {
         return -1;
@@ -27,7 +28,7 @@ int main(int argc, char* argv[]) {
     if (dbclient_init(&db, TEXT_DB, config_get_host_file()) < 0) {
         log_deinit();
         config_deinit();
-        printf("Can not init database\n");
+        LOG_DBG("Can not init database\n");
         return -1;
     }
 
@@ -35,11 +36,16 @@ int main(int argc, char* argv[]) {
         dbclient_deinit(&db);
         log_deinit();
         config_deinit();
-        printf("Can not init message\n");
+        LOG_DBG("Can not init message\n");
         return -1;
     }
 
-    start_time = clock();
+    if(report_init() < 0) {
+        dbclient_deinit(&db);
+        log_deinit();
+        config_deinit();
+        message_deinit(&msg);
+    }
 
     sendworker_set_hostdb(&sendworker, &db);
     sendworker_set_msg(&sendworker, &msg);
@@ -47,22 +53,20 @@ int main(int argc, char* argv[]) {
     if (sendworker_init(&sendworker) < 0) {
         dbclient_deinit(&db);
         message_deinit(&msg);
+        report_deinit();
         log_deinit();
         config_deinit();
-        printf("Can not init worker\n");
+        LOG_DBG("Can not init worker\n");
         return -1;
     }
 
     sendworker_deinit(&sendworker);
-
-    end_time = clock();
-    elapsed_time_ms = (double)(end_time - start_time) / CLOCKS_PER_SEC * 1000;
-    printf("Send time: %.2f milliseconds\n", elapsed_time_ms);
-
     dbclient_deinit(&db);
     message_deinit(&msg);
+    report_deinit();
     log_deinit();
     config_deinit();
+    userdbg_deinit();
 
     return 0;
 }
