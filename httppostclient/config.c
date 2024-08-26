@@ -54,6 +54,23 @@ int config_set_msg_file(const char* msg_file) {
         return -1;
     }
 
+    const char *dot = strrchr(msg_file, '.');
+    if (!dot || strcmp(dot, ".txt") != 0) {
+        fprintf(stderr, "File is not a .txt file\n");
+        return -1;
+    }
+
+    struct stat st;
+    if (stat(msg_file, &st) != 0) {
+        perror("Failed to get file size");
+        return -1;
+    }
+
+    if (st.st_size > MAX_INPUT_FILE_SIZE) {
+        fprintf(stderr, "File size exceeds 2KB\n");
+        return -1;
+    }
+
     if (config.msg_file) {
         free(config.msg_file);
     }
