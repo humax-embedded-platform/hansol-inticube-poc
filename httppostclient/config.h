@@ -1,6 +1,8 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#define MAX_INPUT_FILE_SIZE 2048
+
 typedef struct config_item_t
 {
     char* msg_file;
