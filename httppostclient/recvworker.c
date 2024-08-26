@@ -8,10 +8,45 @@
 #include <string.h>
 #include <stdatomic.h>
 #include <arpa/inet.h>
-
+#include <time.h>
+#include <sys/time.h>
 
 static task_t revctask;
 static task_t timeout_task;
+
+struct timeval first_request_time;
+
+static int recvworker_print_report_time(void) {
+    char buffer[LOG_MESAGE_MAX_SIZE];
+    struct timeval last_resp_time;
+    gettimeofday(&last_resp_time, NULL);
+
+    struct tm* start = localtime(&first_request_time.tv_sec);
+    char start_time_str[80];
+    strftime(start_time_str, sizeof(start_time_str), "%Y-%m-%d %H:%M:%S", start);
+    snprintf(start_time_str + strlen(start_time_str), sizeof(start_time_str) - strlen(start_time_str), ".%03ld", first_request_time.tv_usec / 1000);
+
+    struct tm* end = localtime(&last_resp_time.tv_sec);
+    char end_time_str[80];
+    strftime(end_time_str, sizeof(end_time_str), "%Y-%m-%d %H:%M:%S", end);
+    snprintf(end_time_str + strlen(end_time_str), sizeof(end_time_str) - strlen(end_time_str), ".%03ld", last_resp_time.tv_usec / 1000);
+
+    int log_len = snprintf(buffer, sizeof(buffer),
+        "====================REPORT====================\n"
+        "Start time : %s\n"
+        "End time   : %s\n"
+        "====================REPORT====================\n",
+        start_time_str, end_time_str);
+
+    if (log_len < 0 || log_len >= sizeof(buffer)) {
+        fprintf(stderr, "Error creating log message or buffer too small.\n");
+        return -1;
+    }
+
+    log_write(buffer, log_len);
+
+    return 0;
+}
 
 static int recvworker_analyze_httprespond(char* msg, int len) {
     if (len <= 0 || msg == NULL) {
@@ -151,7 +186,7 @@ static void recvworker_wait_timeout_func(void* arg) {
 
         if (is_sendcompleted == 1 && is_waitcompleted == 1) {
             break;
-        } 
+        }
 
         node_t* node = NULL;
         max_timeout_node_handle_count = 0;
@@ -185,6 +220,7 @@ static void recvworker_wait_respond_func(void* arg) {
         is_waitcompleted  = linklist_isempty(rw->wait_resp_list);
 
         if (is_sendcompleted == 1 && is_waitcompleted == 1) {
+            recvworker_print_report_time();
             break;
         }
 
@@ -257,6 +293,8 @@ int recvworker_init(recvworker_t* rw) {
         close(rw->epoll_fd);
         return -1;
     }
+
+    gettimeofday(&first_request_time, NULL);
 
     return 0;
 }
