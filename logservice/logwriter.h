@@ -3,7 +3,6 @@
 
 #include "worker.h"
 #include "buffer.h"
-#include <stdatomic.h>
 
 #define LOG_WRITER_CAPACITY    100
 

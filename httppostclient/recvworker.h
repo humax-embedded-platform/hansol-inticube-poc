@@ -6,7 +6,7 @@
 #include "linkedlist.h"
 #include "message.h"
 #include "report.h"
-#include <stdatomic.h>
+#include <pthread.h>
 #include <time.h>
 
 #define MAX_RESPOND_PER_TIME  5  // socket handle 10 received message per time
@@ -24,7 +24,8 @@ typedef struct recvworker {
     int epoll_fd;
     worker_t recv_thread;
     worker_t timeout_thread;
-    atomic_int is_completed;
+    int is_completed;
+    pthread_mutex_t m;
     linklist_t* wait_resp_list;
     report_t report;
 } recvworker_t;

@@ -6,10 +6,12 @@
 #include <sys/epoll.h>
 #include <errno.h>
 #include <string.h>
-#include <stdatomic.h>
 #include <arpa/inet.h>
 #include <time.h>
 #include <sys/time.h>
+
+#define RECV_WORKER_STATUS_INPROCESS 0
+#define RECV_WORKER_STATUS_DONE 1
 
 static task_t revctask;
 static task_t timeout_task;
@@ -180,6 +182,16 @@ static void recvworker_remove_from_waitlist(recvworker_t* rw, httpclient_t clien
     httpclient_deinit(&client);
 }
 
+static int recvworker_get_status(recvworker_t* rw) {
+    int is_completed = RECV_WORKER_STATUS_DONE;
+    if(rw != NULL) {
+        pthread_mutex_lock(&rw->m);
+        is_completed = rw->is_completed;
+        pthread_mutex_unlock(&rw->m);
+    }
+    return is_completed;
+}
+
 static void recvworker_wait_timeout_func(void* arg) {
     recvworker_t* rw = (recvworker_t*)arg;
     int is_sendcompleted = -1;
@@ -190,7 +202,7 @@ static void recvworker_wait_timeout_func(void* arg) {
     {
         usleep(1000*1000);
 
-        is_sendcompleted = atomic_load(&rw->is_completed);
+        is_sendcompleted = recvworker_get_status(rw);
         is_waitcompleted  = linklist_isempty(rw->wait_resp_list);
 
         if (is_sendcompleted == 1 && is_waitcompleted == 1) {
@@ -225,7 +237,7 @@ static void recvworker_wait_respond_func(void* arg) {
     ssize_t bytes_read = 0;
 
     while (1) {
-        is_sendcompleted = atomic_load(&rw->is_completed);
+        is_sendcompleted = recvworker_get_status(rw);
         is_waitcompleted  = linklist_isempty(rw->wait_resp_list);
 
         if (is_sendcompleted == 1 && is_waitcompleted == 1) {
@@ -272,13 +284,18 @@ int recvworker_init(recvworker_t* rw) {
         return -1;
     }
 
-    atomic_init(&rw->is_completed, 0);
-
     rw->epoll_fd = epoll_create1(0);
     if (rw->epoll_fd == -1) {
         printf("recvworker_init epoll_create1 error");
         return -1;
     }
+
+    if (pthread_mutex_init(&rw->m,NULL) != 0) {
+        perror("Mutex init failed");
+        return -1;
+    }
+
+    rw->is_completed = RECV_WORKER_STATUS_INPROCESS;
 
     rw->wait_resp_list = (linklist_t*)malloc(sizeof(linklist_t));
     linklist_init(rw->wait_resp_list);
@@ -316,6 +333,7 @@ void recvworker_deinit(recvworker_t* rw) {
     worker_deinit(&rw->recv_thread);
     worker_deinit(&rw->timeout_thread);
     linklist_deinit(rw->wait_resp_list);
+    pthread_mutex_destroy(&rw->m);
     free(rw->wait_resp_list);
     close(rw->epoll_fd);
 
@@ -351,7 +369,9 @@ int recvworker_add_to_waitlist(recvworker_t* rw, httpclient_t client, usermsg_t*
 
 void recvworker_set_completed(recvworker_t* rw) {
     if (rw != NULL) {
-        atomic_store(&rw->is_completed, 1);
+        pthread_mutex_lock(&rw->m);
+        rw->is_completed = RECV_WORKER_STATUS_DONE;
+        pthread_mutex_unlock(&rw->m);
     }
 }
 

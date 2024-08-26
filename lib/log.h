@@ -3,7 +3,7 @@
 
 #include "buffer.h"
 #include "worker.h"
-#include <stdatomic.h>
+#include <pthread.h>
 
 #define LOG_BUFFER_CAPACITY 1000
 #define LOG_MESAGE_MAX_SIZE 2*1024
@@ -17,7 +17,8 @@ typedef struct log_client_t
     int logserver_pid;
     buffer_t buffer;
     worker_t worker;
-    atomic_int is_initialized;
+    pthread_mutex_t m;
+    int is_initialized;
 } log_client_t;
 
 int  log_init(const char* log_path);

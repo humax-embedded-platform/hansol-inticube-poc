@@ -22,15 +22,13 @@ static void sendworker_task_handler(void* arg) {
             continue;
         }
 
-        while (atomic_flag_test_and_set(&sw->request_count_check_flag)) {}
-
+        pthread_mutex_lock(&sw->m);
         sw->request_count--;
         if (sw->request_count < 0) {
-            atomic_flag_clear(&sw->request_count_check_flag);
+            pthread_mutex_unlock(&sw->m);
             break;
         }
-
-        atomic_flag_clear(&sw->request_count_check_flag);
+        pthread_mutex_unlock(&sw->m);
 
         if(dbclient_gethost(sw->hostdb, &host)) {
             break;
@@ -69,6 +67,11 @@ int sendworker_init(sendworker_t* sw) {
         return -1;
     }
 
+    if (pthread_mutex_init(&sw->m, NULL) != 0) {
+        perror("Mutex destruction failed");
+        return -1;
+    }
+
     sendtask.task_handler = sendworker_task_handler;
     sendtask.arg = sw;
 
@@ -95,6 +98,7 @@ void sendworker_deinit(sendworker_t* sw) {
         worker_deinit(&sw->workers[i]);
     }
 
+    pthread_mutex_destroy(&sw->m);
     recvworker_set_completed(&sw->rev_worker);
     recvworker_deinit(&sw->rev_worker);
 }

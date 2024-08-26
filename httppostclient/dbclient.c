@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdatomic.h>
 
 int dbclient_init(dbclient* client, db_type_t type, const char* dbpath) {
     if (client == NULL || dbpath == NULL) {
