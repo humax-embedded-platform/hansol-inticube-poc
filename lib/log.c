@@ -15,6 +15,9 @@
 #define LOG_WRITE_RETRY_MAX     5
 #define LOGSERVER_EXECUTABLE_FILE "./logservice"
 
+#define LOG_INIT_STATUS_INITIALIZED     1
+#define LOG_INIT_STATUS_UNINITIALIZED   0
+
 static log_client_t log_client;
 static task_t       logtask;
 
@@ -62,6 +65,22 @@ static void stop_log_server(void) {
     pid_t result = waitpid(log_client.logserver_pid, &status, 0);
 
     log_client.logserver_pid = -1;
+}
+
+static int log_set_init_status(int status) {
+    pthread_mutex_lock(&log_client.m);
+    log_client.is_initialized = status;
+    pthread_mutex_unlock(&log_client.m);
+}
+
+static int log_get_init_status() {
+    int status = 0;
+
+    pthread_mutex_lock(&log_client.m);
+    status = log_client.is_initialized;
+    pthread_mutex_unlock(&log_client.m);
+
+    return status;
 }
 
 void log_worker_func(void* arg) {
@@ -128,7 +147,7 @@ void log_worker_func(void* arg) {
                 }
             }
 
-            if(atomic_load(&log_client.is_initialized) == 0) {
+            if(log_get_init_status() == LOG_INIT_STATUS_UNINITIALIZED) {
                 break;
             }
 
@@ -140,11 +159,6 @@ void log_worker_func(void* arg) {
 int log_init(const char* log_path) {
 
     if(start_log_server() < 0) {
-        return -1;
-    }
-
-    if(atomic_load(&log_client.is_initialized) == 1) {
-        printf("log client is initialized, not need init again\n");
         return -1;
     }
 
@@ -186,7 +200,13 @@ int log_init(const char* log_path) {
         return -1;
     }
 
-    atomic_store(&log_client.is_initialized, 1);
+    if (pthread_mutex_init(&log_client.m, NULL) != 0) {
+        perror("Mutex initialization failed");
+        close(log_client.log_fd);
+        return -1;
+    }
+
+    log_set_init_status(LOG_INIT_STATUS_INITIALIZED);
 
     if(log_path != NULL) {
         log_config(CONFIG_LOG_PATH, log_path);
@@ -196,8 +216,7 @@ int log_init(const char* log_path) {
 }
 
 void log_deinit() {
-    atomic_store(&log_client.is_initialized, 0);
-
+    log_set_init_status(LOG_INIT_STATUS_UNINITIALIZED);
     worker_deinit(&log_client.worker);
 
     log_entry_t entry;
@@ -206,15 +225,14 @@ void log_deinit() {
         buffer_log_entry_deinit(&entry);
     }
 
+    pthread_mutex_destroy(&log_client.m);
     buffer_deinit(&log_client.buffer);
-
     close(log_client.log_fd);
-
     stop_log_server();
 }
 
 void log_write(char* buff, size_t len) {
-    if (atomic_load(&log_client.is_initialized) == 0) {
+    if (log_get_init_status() ==  LOG_INIT_STATUS_UNINITIALIZED) {
         fprintf(stderr, "Logging is disabled. Cannot write to buffer.\n");
         return;
     }

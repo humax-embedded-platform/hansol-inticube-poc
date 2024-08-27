@@ -37,6 +37,15 @@ static void config_log_path(config_msg_t* msg) {
     }
 }
 
+static int logconfig_is_completed() {
+    int is_completed = 0;
+    pthread_mutex_lock(&config.m);
+    is_completed = config.is_completed;
+    pthread_mutex_unlock(&config.m);
+
+    return is_completed;
+}
+
 static void logconfig_receiver(void* arg) {
     logconfig_t* config = (logconfig_t*)arg;
     config_msg_t msg;
@@ -44,9 +53,7 @@ static void logconfig_receiver(void* arg) {
     int is_completed = false;
 
     while (1) {
-
-        is_completed = atomic_load(&config->is_completed);
-        if(is_completed == 1) {
+        if(logconfig_is_completed() == 1) {
             break;
         }
 
@@ -88,11 +95,16 @@ int logconfig_init(void) {
         return -1;
     }
 
-    atomic_store(&config.is_completed, 0);
+    if (pthread_mutex_init(&config.m, NULL) != 0) {
+        perror("Mutex initialization failed");
+        close(config.config_sock_fd);
+        return -1;
+    }
+
+    config.is_completed = 0;
 
     config_task.task_handler = logconfig_receiver;
     config_task.arg = (void*)&config;
-
     if (worker_init(&config.config_worker, &config_task) < 0) {
         perror("Failed to initialize worker");
         close(config.config_sock_fd);
@@ -104,6 +116,7 @@ int logconfig_init(void) {
 
 int logconfig_deinit(void) {
     worker_deinit(&config.config_worker);
+    pthread_mutex_destroy(&config.m);
     close(config.config_sock_fd);
 }
 

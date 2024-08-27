@@ -34,7 +34,7 @@ void report_add_result(report_t* rp, int error_code) {
         e.error_code = error_code;
         e.count = 1;
         node_t* node = (node_t*)malloc(sizeof(node_t));
-        link_list_node_init(node, (void*)&e, sizeof(e));
+        linklist_node_init(node, (void*)&e, sizeof(e));
         linklist_add(&rp->error_list, node);
     }
 }
