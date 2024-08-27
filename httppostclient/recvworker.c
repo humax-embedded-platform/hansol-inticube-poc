@@ -134,7 +134,7 @@ static int recvworker_httprespond_event_handler(recvworker_t* rw, http_resp_t* r
         log_write(buffer, log_len);
         int error = recvworker_analyze_httprespond(msg, len);
 
-        printf("Host: %s Port %d Respond Code: %d (Success)\n", rsp->client.host.adress.domain, rsp->client.host.port, error);
+        //printf("Host: %s Port %d Respond Code: %d (Success)\n", rsp->client.host.adress.domain, rsp->client.host.port, error);
         report_add_result(&rw->report, error);
     }
 
@@ -218,7 +218,7 @@ static void recvworker_wait_timeout_func(void* arg) {
                 http_resp_t* rsp = (http_resp_t*)node->data;
                 recvworker_httprespond_timeout_handler(rw, rsp,NULL, 0);
                 recvworker_remove_from_waitlist(rw, rsp->client);
-                link_list_node_deinit(node);
+                linklist_node_deinit(node);
             } else {
                 break;
             }
@@ -272,7 +272,7 @@ static void recvworker_wait_respond_func(void* arg) {
                     http_resp_t* rsp = (http_resp_t*)node->data;
                     recvworker_httprespond_event_handler(rw, rsp, buffer, bytes_read);
                     recvworker_remove_from_waitlist(rw, rsp->client);
-                    link_list_node_deinit(node);
+                    linklist_node_deinit(node);
                 }
             }
         }
@@ -361,7 +361,7 @@ int recvworker_add_to_waitlist(recvworker_t* rw, httpclient_t client, usermsg_t*
     resp.sendmsg = sendmsg;
 
     node_t* node = (node_t*)malloc(sizeof(node_t));
-    link_list_node_init(node, (void*)&resp, sizeof(resp));
+    linklist_node_init(node, (void*)&resp, sizeof(resp));
     linklist_add(rw->wait_resp_list, node);
 
     return 0;

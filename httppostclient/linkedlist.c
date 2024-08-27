@@ -20,7 +20,7 @@ void linklist_deinit(linklist_t* list) {
     node_t* current = list->head;
     while (current != NULL) {
         node_t* next = current->next;
-        link_list_node_deinit(current);
+        linklist_node_deinit(current);
         current = next;
     }
 
@@ -111,7 +111,7 @@ node_t* linklist_find_and_remove(linklist_t* list, int (*condition_cmp)(const vo
 }
 
 
-void linklist_remove(linklist_t* list, int (*condition_cmp)(const void*, const void*), const void* inputcondition, int from_head) {
+void linklist_remove_with_condition(linklist_t* list, int (*condition_cmp)(const void*, const void*), const void* inputcondition, int from_head) {
     if (list == NULL || condition_cmp == NULL) return;
 
     pthread_mutex_lock(&list->m);
@@ -135,7 +135,7 @@ void linklist_remove(linklist_t* list, int (*condition_cmp)(const void*, const v
 
             list->size--;
 
-            link_list_node_deinit(current);
+            linklist_node_deinit(current);
 
             pthread_mutex_unlock(&list->m);
             return;
@@ -158,7 +158,7 @@ int  linklist_isempty(linklist_t* list) {
     return isempty;
 }
 
-void link_list_node_init(node_t* node, void* data, size_t size) {
+void linklist_node_init(node_t* node, void* data, size_t size) {
     if (node == NULL || data == NULL) return;
 
     node->data = malloc(size);
@@ -170,7 +170,7 @@ void link_list_node_init(node_t* node, void* data, size_t size) {
     }
 }
 
-void link_list_node_deinit(node_t* node) {
+void linklist_node_deinit(node_t* node) {
     if (node == NULL) return;
 
     if (node->data != NULL) {
@@ -229,4 +229,30 @@ void linklist_for_each(linklist_t* list, void (*callback)(void*, size_t)) {
     }
 
     pthread_mutex_unlock(&list->m);
+}
+
+node_t* linklist_remove_from_tail(linklist_t* list) {
+    if (list == NULL || list->tail == NULL) return NULL;
+
+    pthread_mutex_lock(&list->m);
+
+    node_t* removed_node = list->tail;
+    if (list->tail->prev != NULL) {
+        list->tail = list->tail->prev;
+        list->tail->next = NULL;
+    } else {
+        list->head = list->tail = NULL;
+    }
+    list->size--;
+
+    node_t* clone = malloc(sizeof(node_t));
+    if (clone != NULL) {
+        linklist_node_init(clone, removed_node->data, removed_node->size);
+    }
+
+    linklist_node_deinit(removed_node);
+
+    pthread_mutex_unlock(&list->m);
+
+    return clone;
 }
