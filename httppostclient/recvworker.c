@@ -1,5 +1,6 @@
 #include "recvworker.h"
 #include "log.h"
+#include "userdbg.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -97,7 +98,7 @@ static int recvworker_httprespond_timeout_handler(recvworker_t* rw, http_resp_t*
 
         log_write(buffer, log_len);
 
-        printf("Host: %s Port %d Respond Code: %d (Timeout)\n", rsp->client.host.adress.domain, rsp->client.host.port, 28);
+        //userdbg_write("Host: %s Port %d Respond Code: %d (Timeout)\n", rsp->client.host.adress.domain, rsp->client.host.port, 28);
         report_add_result(&rw->report, 28);
     }
 
@@ -134,7 +135,7 @@ static int recvworker_httprespond_event_handler(recvworker_t* rw, http_resp_t* r
         log_write(buffer, log_len);
         int error = recvworker_analyze_httprespond(msg, len);
 
-        //printf("Host: %s Port %d Respond Code: %d (Success)\n", rsp->client.host.adress.domain, rsp->client.host.port, error);
+        //userdbg_write("Host: %s Port %d Respond Code: %d (Success)\n", rsp->client.host.adress.domain, rsp->client.host.port, error);
         report_add_result(&rw->report, error);
     }
 

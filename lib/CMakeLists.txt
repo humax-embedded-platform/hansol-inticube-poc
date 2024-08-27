@@ -5,6 +5,7 @@ add_library(httppostlib STATIC
     buffer.c
     log.c
     worker.c
+    userdbg.c
 )
 
 # Specify include directories for the library

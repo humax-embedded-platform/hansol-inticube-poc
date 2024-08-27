@@ -2,6 +2,7 @@
 #include "httpclient.h"
 #include "dbclient.h"
 #include "message.h"
+#include "userdbg.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -18,10 +19,10 @@ static int retry_list_add_exits_item(void* curr, void* new) {
     hostinfor_t* failure_host = (hostinfor_t*)new;
 
     if (memcmp((void*)&req->host, (void*)failure_host, sizeof(hostinfor_t)) == 0) {
-        req->failure_count++;
         if(req->failure_count >= REQUEST_FAIL_COUNT_MAX_PER_ENTRY) {
             return 0;
         }else {
+            req->failure_count++;
             return 1;
         }
     }
@@ -56,7 +57,7 @@ static void sendworker_task_handler(void* arg) {
     while (1)
     {
         if(recvworker_waitlist_size(&sw->rev_worker) >= MAX_HANDLE_REQUEST_PER_TIME) {
-            usleep(10*1000);
+            usleep(100*1000);
             continue;
         }
 
@@ -102,10 +103,10 @@ static void sendworker_task_handler(void* arg) {
                 if(req->retry_count < REQUEST_FAIL_RETRY_MAX) {
                     req->retry_count++;
                 } else {
+                    userdbg_write("ssss delete: %s failure_count %d retry_count %d \n", req->host.adress.domain, req->retry_count, req->failure_count);
                     linklist_node_deinit(retry_item);
                     continue;
                 }
-
                 send_status = -1;
                 if (httpclient_init(&client, req->host) == 0) {
                     if (httpclient_send_post_msg(&client, sw->msg->msg) == 0) {
@@ -117,6 +118,7 @@ static void sendworker_task_handler(void* arg) {
                     linklist_add(&sw->failure_list, retry_item);
                     continue;
                 } else {
+                    //userdbg_write("ssss: %s failure_count %d retry_count %d \n", req->host.adress.domain, req->retry_count, req->failure_count);
                     req->retry_count = 0;
                     req->failure_count--;
                     if(req->failure_count < 0) {
@@ -129,7 +131,6 @@ static void sendworker_task_handler(void* arg) {
                 recvworker_add_to_waitlist(&sw->rev_worker, client, sw->msg);
             }
         }
-
     }
 }
 
@@ -145,12 +146,12 @@ int sendworker_set_request_count(sendworker_t* sw, int count) {
 
 int sendworker_init(sendworker_t* sw) {
     if (sw == NULL || sw->msg == NULL || sw->hostdb == NULL) {
-        printf("sendworker_init: Invalid arguments\n");
+        userdbg_write("sendworker_init: Invalid arguments\n");
         return -1;
     }
 
     if (recvworker_init(&sw->rev_worker) != 0) {
-        printf("sendworker_init: recvworker_init failed\n");
+        userdbg_write("sendworker_init: recvworker_init failed\n");
         return -1;
     }
 
@@ -166,7 +167,7 @@ int sendworker_init(sendworker_t* sw) {
 
     for (int i = 0; i < MAX_SEND_WORKER; ++i) {
         if (worker_init(&sw->workers[i], &sendtask) != 0) {
-            printf("sendworker_init: worker_init failed for worker %d\n", i);
+            userdbg_write("sendworker_init: worker_init failed for worker %d\n", i);
             for (int j = 0; j < i; ++j) {
                 worker_deinit(&sw->workers[j]);
             }
@@ -179,7 +180,7 @@ int sendworker_init(sendworker_t* sw) {
 
 void sendworker_deinit(sendworker_t* sw) {
     if (sw == NULL) {
-        printf("sendworker_deinit: sw is NULL\n");
+        userdbg_write("sendworker_deinit: sw is NULL\n");
         return;
     }
 

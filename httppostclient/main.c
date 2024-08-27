@@ -8,6 +8,7 @@
 #include "log.h"
 #include "cmd.h"
 #include "config.h"
+#include "userdbg.h"
 
 int main(int argc, char* argv[]) {
     dbclient db;
@@ -17,6 +18,8 @@ int main(int argc, char* argv[]) {
     if (cmd_parser(argc, argv) < 0) {
         return -1;
     }
+
+    userdbg_init();
 
     if(log_init(config_get_log_folder()) <0 ) {
         return -1;
@@ -55,6 +58,7 @@ int main(int argc, char* argv[]) {
     message_deinit(&msg);
     log_deinit();
     config_deinit();
+    userdbg_deinit();
 
     return 0;
 }
