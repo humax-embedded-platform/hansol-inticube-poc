@@ -13,6 +13,7 @@
 #define REQUEST_FAIL_RETRY_MAX  5
 
 static task_t sendtask;
+static int    total_request_failure = 0;
 
 static int retry_list_add_exits_item(void* curr, void* new) {
     failure_request_t* req = (failure_request_t*)curr;
@@ -77,6 +78,8 @@ static void sendworker_task_handler(void* arg) {
             if (httpclient_init(&client, host) == 0) {
                 if (httpclient_send_post_msg(&client, sw->msg->msg) == 0) {
                     send_status = 0;
+                } else {
+                    httpclient_deinit(&client);
                 }
             }
 
@@ -103,7 +106,6 @@ static void sendworker_task_handler(void* arg) {
                 if(req->retry_count < REQUEST_FAIL_RETRY_MAX) {
                     req->retry_count++;
                 } else {
-                    userdbg_write("ssss delete: %s failure_count %d retry_count %d \n", req->host.adress.domain, req->retry_count, req->failure_count);
                     linklist_node_deinit(retry_item);
                     continue;
                 }
@@ -111,6 +113,8 @@ static void sendworker_task_handler(void* arg) {
                 if (httpclient_init(&client, req->host) == 0) {
                     if (httpclient_send_post_msg(&client, sw->msg->msg) == 0) {
                         send_status = 0;
+                    } else {
+                        httpclient_deinit(&client);
                     }
                 }
 
@@ -118,10 +122,9 @@ static void sendworker_task_handler(void* arg) {
                     linklist_add(&sw->failure_list, retry_item);
                     continue;
                 } else {
-                    //userdbg_write("ssss: %s failure_count %d retry_count %d \n", req->host.adress.domain, req->retry_count, req->failure_count);
                     req->retry_count = 0;
                     req->failure_count--;
-                    if(req->failure_count < 0) {
+                    if(req->failure_count <= 0) {
                         linklist_node_deinit(retry_item);
                     } else {
                         linklist_add(&sw->failure_list, retry_item);                        

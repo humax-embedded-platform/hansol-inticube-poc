@@ -27,7 +27,6 @@ typedef struct recvworker {
     int is_completed;
     pthread_mutex_t m;
     linklist_t* wait_resp_list;
-    report_t report;
 } recvworker_t;
 
 int  recvworker_init(recvworker_t* rw);

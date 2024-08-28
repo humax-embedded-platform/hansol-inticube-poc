@@ -17,39 +17,6 @@
 static task_t revctask;
 static task_t timeout_task;
 
-struct timeval first_request_time;
-
-static int recvworker_print_report_time(void) {
-    char buffer[LOG_MESAGE_MAX_SIZE];
-    struct timeval last_resp_time;
-    gettimeofday(&last_resp_time, NULL);
-
-    struct tm* start = localtime(&first_request_time.tv_sec);
-    char start_time_str[80];
-    strftime(start_time_str, sizeof(start_time_str), "%Y-%m-%d %H:%M:%S", start);
-    snprintf(start_time_str + strlen(start_time_str), sizeof(start_time_str) - strlen(start_time_str), ".%03ld", first_request_time.tv_usec / 1000);
-
-    struct tm* end = localtime(&last_resp_time.tv_sec);
-    char end_time_str[80];
-    strftime(end_time_str, sizeof(end_time_str), "%Y-%m-%d %H:%M:%S", end);
-    snprintf(end_time_str + strlen(end_time_str), sizeof(end_time_str) - strlen(end_time_str), ".%03ld", last_resp_time.tv_usec / 1000);
-
-    int log_len = snprintf(buffer, sizeof(buffer),
-        "====================REPORT====================\n"
-        "Start time : %s\n"
-        "End time   : %s\n"
-        "====================REPORT====================\n",
-        start_time_str, end_time_str);
-
-    if (log_len < 0 || log_len >= sizeof(buffer)) {
-        fprintf(stderr, "Error creating log message or buffer too small.\n");
-        return -1;
-    }
-
-    log_write(buffer, log_len);
-
-    return 0;
-}
 
 static int recvworker_analyze_httprespond(char* msg, int len) {
     if (len <= 0 || msg == NULL) {
@@ -99,7 +66,7 @@ static int recvworker_httprespond_timeout_handler(recvworker_t* rw, http_resp_t*
         log_write(buffer, log_len);
 
         //userdbg_write("Host: %s Port %d Respond Code: %d (Timeout)\n", rsp->client.host.adress.domain, rsp->client.host.port, 28);
-        report_add_result(&rw->report, 28);
+        report_add_result(28);
     }
 
     return 0;
@@ -136,7 +103,7 @@ static int recvworker_httprespond_event_handler(recvworker_t* rw, http_resp_t* r
         int error = recvworker_analyze_httprespond(msg, len);
 
         //userdbg_write("Host: %s Port %d Respond Code: %d (Success)\n", rsp->client.host.adress.domain, rsp->client.host.port, error);
-        report_add_result(&rw->report, error);
+        report_add_result(error);
     }
 
     return 0;
@@ -242,7 +209,6 @@ static void recvworker_wait_respond_func(void* arg) {
         is_waitcompleted  = linklist_isempty(rw->wait_resp_list);
 
         if (is_sendcompleted == 1 && is_waitcompleted == 1) {
-            recvworker_print_report_time();
             break;
         }
 
@@ -300,13 +266,11 @@ int recvworker_init(recvworker_t* rw) {
 
     rw->wait_resp_list = (linklist_t*)malloc(sizeof(linklist_t));
     linklist_init(rw->wait_resp_list);
-    report_init(&rw->report);
 
     revctask.task_handler = recvworker_wait_respond_func;
     revctask.arg = rw;
     if (worker_init(&rw->recv_thread, &revctask) != 0) {
         linklist_deinit(rw->wait_resp_list);
-        report_deinit(&rw->report);
         close(rw->epoll_fd);
         return -1;
     }
@@ -316,12 +280,9 @@ int recvworker_init(recvworker_t* rw) {
     if (worker_init(&rw->timeout_thread, &timeout_task) != 0) {
         worker_deinit(&rw->recv_thread);
         linklist_deinit(rw->wait_resp_list);
-        report_deinit(&rw->report);
         close(rw->epoll_fd);
         return -1;
     }
-
-    gettimeofday(&first_request_time, NULL);
 
     return 0;
 }
@@ -337,9 +298,6 @@ void recvworker_deinit(recvworker_t* rw) {
     pthread_mutex_destroy(&rw->m);
     free(rw->wait_resp_list);
     close(rw->epoll_fd);
-
-    report_print_result(&rw->report);
-    report_deinit(&rw->report);
 }
 
 int recvworker_add_to_waitlist(recvworker_t* rw, httpclient_t client, usermsg_t* sendmsg) {

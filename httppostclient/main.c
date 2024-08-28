@@ -40,12 +40,15 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
+    report_init();
+
     sendworker_set_hostdb(&sendworker, &db);
     sendworker_set_msg(&sendworker, &msg);
     sendworker_set_request_count(&sendworker, config_get_request_count());
     if (sendworker_init(&sendworker) < 0) {
         dbclient_deinit(&db);
         message_deinit(&msg);
+        report_deinit();
         log_deinit();
         config_deinit();
         printf("Can not init worker\n");
@@ -53,9 +56,9 @@ int main(int argc, char* argv[]) {
     }
 
     sendworker_deinit(&sendworker);
-
     dbclient_deinit(&db);
     message_deinit(&msg);
+    report_deinit();
     log_deinit();
     config_deinit();
     userdbg_deinit();

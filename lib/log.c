@@ -233,7 +233,7 @@ void log_deinit() {
 
 void log_write(char* buff, size_t len) {
     if (log_get_init_status() ==  LOG_INIT_STATUS_UNINITIALIZED) {
-        fprintf(stderr, "Logging is disabled. Cannot write to buffer.\n");
+        printf("Logging is disabled. Cannot write to buffer.\n");
         return;
     }
 
