@@ -40,7 +40,12 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    report_init();
+    if(report_init() < 0) {
+        dbclient_deinit(&db);
+        log_deinit();
+        config_deinit();
+        message_deinit(&msg);
+    }
 
     sendworker_set_hostdb(&sendworker, &db);
     sendworker_set_msg(&sendworker, &msg);

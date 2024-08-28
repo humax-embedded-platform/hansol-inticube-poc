@@ -56,35 +56,51 @@ static int report_error_code_cmp(void* curr, void* input_check) {
 
 static void report_print_error(void* curr, size_t size) {
     error_code_t* error_data = (error_code_t*)curr;
-    LOG_DBG("Respond Code: %d, Count: %d\n", error_data->error_code, error_data->count);
+    LOG_DBG("Request Respond: Code %d, Count: %d\n", error_data->error_code, error_data->count);
 }
 
-void report_init() {
+int report_init() {
+    if(pthread_mutex_init(&g_report.m, NULL) != 0) {
+        return -1;
+    }
+
     gettimeofday(&first_request_time, NULL);
-    linklist_init(&g_report.error_list);
+    linklist_init(&g_report.rsp_list);
+    g_report.failure_count = 0;
+
+    return 0;
 }
 
 void report_deinit() {
-    linklist_deinit(&g_report.error_list);
+    linklist_deinit(&g_report.rsp_list);
+    pthread_mutex_destroy(&g_report.m);
 }
 
-void report_add_result(int error_code) {
+void report_add_resp_code(int error_code) {
     int error = error_code;
-    if(linklist_find_and_update(&g_report.error_list, report_error_code_cmp, (void*)&error) == 0) {
+    if(linklist_find_and_update(&g_report.rsp_list, report_error_code_cmp, (void*)&error) == 0) {
         error_code_t e;
         e.error_code = error_code;
         e.count = 1;
         node_t* node = (node_t*)malloc(sizeof(node_t));
         linklist_node_init(node, (void*)&e, sizeof(e));
-        linklist_add(&g_report.error_list, node);
+        linklist_add(&g_report.rsp_list, node);
     }
 }
 
+void report_add_req_failure(int failure_count) {
+    pthread_mutex_lock(&g_report.m);
+    g_report.failure_count += failure_count;
+    pthread_mutex_unlock(&g_report.m);
+}
+
 void report_print_result() {
-    node_t* current = (node_t*)&g_report.error_list.head;
+    node_t* current = (node_t*)&g_report.rsp_list.head;
     LOG_DBG("HTTP Report Results:\n");
     LOG_DBG("====================\n");
-    linklist_for_each(&g_report.error_list, report_print_error);
-
+    if(g_report.failure_count > 0) {
+        LOG_DBG("Request Error: Count : %d\n",g_report.failure_count);
+    }
+    linklist_for_each(&g_report.rsp_list, report_print_error);
     report_print_time_to_log();
 }
