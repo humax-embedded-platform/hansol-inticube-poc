@@ -195,7 +195,6 @@ int httpclient_send_post_msg(httpclient_t* httpclient, char* msg) {
                 usleep(2000);
                 continue;
             } else {
-                LOG_DBG("httpclient_send_post_msg: send failure\n");
                 httprequest_deinit(&req);
                 return -1;
             }
