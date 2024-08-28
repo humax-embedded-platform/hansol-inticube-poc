@@ -11,7 +11,6 @@ void buffer_init(buffer_t* cb, size_t capacity) {
 
     cb->entries = (log_entry_t*)malloc(capacity * sizeof(log_entry_t));
     if (cb->entries == NULL) {
-        perror("Failed to allocate memory for buffer entries");
         exit(EXIT_FAILURE);
     }
 
@@ -22,7 +21,6 @@ void buffer_init(buffer_t* cb, size_t capacity) {
     }
 
     if (pthread_mutex_init(&cb->mutex, NULL) != 0) {
-        perror("Failed to initialize mutex");
         free(cb->entries);
         exit(EXIT_FAILURE);
     }
@@ -37,7 +35,6 @@ void buffer_write_with_retry(buffer_t* cb, const char* data, size_t len, int ret
     }
 
     if (cb->count == cb->capacity) {
-        printf("buffer_write_with_retry full\n");
         free(cb->entries[cb->head].data);
         cb->entries[cb->head].data = NULL;
         cb->entries[cb->head].size = 0;
@@ -50,7 +47,6 @@ void buffer_write_with_retry(buffer_t* cb, const char* data, size_t len, int ret
 
     cb->entries[cb->tail].data = (char*)malloc(len);
     if (cb->entries[cb->tail].data == NULL) {
-        perror("Failed to allocate memory for log entry data");
         pthread_mutex_unlock(&cb->mutex);
         return;
     }
@@ -81,7 +77,6 @@ int buffer_read(buffer_t* cb, log_entry_t* log) {
 
     log->data = (char*)malloc(entry->size);
     if (log->data == NULL) {
-        perror("Failed to allocate memory for log entry data");
         pthread_mutex_unlock(&cb->mutex);
         return -1;
     }

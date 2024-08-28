@@ -59,14 +59,12 @@ static void logconfig_receiver(void* arg) {
 
         recv_len = recvfrom(config->config_sock_fd, &msg, sizeof(msg), 0, NULL, NULL);
         if (recv_len < 0) {
-            perror("recvfrom failed");
             continue;
         }
 
         if (msg.config_id >= 0 && msg.config_id < CONFIG_MAX && handlers[msg.config_id] != NULL) {
             handlers[msg.config_id](&msg);
         } else {
-            printf("unknown config\n");
         }
     }
 }
@@ -79,7 +77,6 @@ int logconfig_init(void) {
 
     config.config_sock_fd = socket(AF_UNIX, SOCK_DGRAM, 0); 
     if (config.config_sock_fd < 0) {
-        perror("Socket initialization failed");
         return -1;
     }
 
@@ -90,13 +87,11 @@ int logconfig_init(void) {
     unlink(CONFIG_SOCKET_PATH);
 
     if (bind(config.config_sock_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
-        perror("Socket bind failed");
         close(config.config_sock_fd);
         return -1;
     }
 
     if (pthread_mutex_init(&config.m, NULL) != 0) {
-        perror("Mutex initialization failed");
         close(config.config_sock_fd);
         return -1;
     }
@@ -106,7 +101,6 @@ int logconfig_init(void) {
     config_task.task_handler = logconfig_receiver;
     config_task.arg = (void*)&config;
     if (worker_init(&config.config_worker, &config_task) < 0) {
-        perror("Failed to initialize worker");
         close(config.config_sock_fd);
         return -1;
     }
@@ -126,7 +120,6 @@ char *logconfig_get_path(void) {
 
 void logconfig_register_config_changed(logconfig_changed_cb_t cb) {
     if (cb == NULL) {
-        fprintf(stderr, "Error: Attempted to register a NULL callback\n");
         return;
     }
 

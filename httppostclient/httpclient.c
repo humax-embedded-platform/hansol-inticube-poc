@@ -21,7 +21,7 @@ static int httpclient_init_with_ipv4(httpclient_t* httpclient, hostinfor_t host)
     httpclient->host   = host;
     httpclient->sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (httpclient->sockfd < 0) {
-        userdbg_write("httpclient_init_with_ipv4: Socket creation failed\n");
+        LOG_DBG("httpclient_init_with_ipv4: Socket creation failed\n");
         return -1;
     }
 
@@ -29,26 +29,26 @@ static int httpclient_init_with_ipv4(httpclient_t* httpclient, hostinfor_t host)
     int send_buffer_size = SOCKET_SEND_BUFFER_MAX;
 
     if (setsockopt(httpclient->sockfd, SOL_SOCKET, SO_RCVBUF, &recv_buffer_size, sizeof(recv_buffer_size)) < 0) {
-        userdbg_write("httpclient_init_with_ipv4: Setting SO_RCVBUF failed\n");
+        LOG_DBG("httpclient_init_with_ipv4: Setting SO_RCVBUF failed\n");
         close(httpclient->sockfd);
         return -1;
     }
 
     if (setsockopt(httpclient->sockfd, SOL_SOCKET, SO_SNDBUF, &send_buffer_size, sizeof(send_buffer_size)) < 0) {
-        userdbg_write("httpclient_init_with_ipv4: Setting SO_SNDBUF failed\n");
+        LOG_DBG("httpclient_init_with_ipv4: Setting SO_SNDBUF failed\n");
         close(httpclient->sockfd);
         return -1;
     }
 
     int flags = fcntl(httpclient->sockfd, F_GETFL, 0);
     if (flags == -1) {
-        userdbg_write("fcntl(F_GETFL) failed");
+        LOG_DBG("fcntl(F_GETFL) failed");
         close(httpclient->sockfd);
         return -1;
     }
 
     if (fcntl(httpclient->sockfd, F_SETFL, flags | O_NONBLOCK) == -1) {
-        userdbg_write("httpclient_init_with_ipv4: fcntl(F_SETFL) failed\n");
+        LOG_DBG("httpclient_init_with_ipv4: fcntl(F_SETFL) failed\n");
         close(httpclient->sockfd);
         return -1;
     }
@@ -59,7 +59,7 @@ static int httpclient_init_with_ipv4(httpclient_t* httpclient, hostinfor_t host)
     server_addr.sin_port = htons(host.port);
 
     if (inet_pton(AF_INET, host.adress.ip, &server_addr.sin_addr) <= 0) {
-        userdbg_write("httpclient_init_with_ipv4: Invalid IP address\n");
+        LOG_DBG("httpclient_init_with_ipv4: Invalid IP address\n");
         close(httpclient->sockfd);
         return -1;
     }
@@ -67,7 +67,7 @@ static int httpclient_init_with_ipv4(httpclient_t* httpclient, hostinfor_t host)
     int ret = connect(httpclient->sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr));
     if (ret < 0) {
         if (errno != EINPROGRESS) {
-            userdbg_write("Connection failed");
+            LOG_DBG("httpclient_init_with_ipv4: Connection failed");
             close(httpclient->sockfd);
             return -1;
         }
@@ -85,19 +85,19 @@ static int httpclient_init_with_domain(httpclient_t* httpclient, hostinfor_t hos
 
     httpclient->sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (httpclient->sockfd < 0) {
-        userdbg_write("httpclient_init_with_domain: Socket creation failed\n");
+        LOG_DBG("httpclient_init_with_domain: Socket creation failed\n");
         return -1;
     }
 
     int flags = fcntl(httpclient->sockfd, F_GETFL, 0);
     if (flags == -1) {
-        userdbg_write("httpclient_init_with_domain: fcntl(F_GETFL) failed\n");
+        LOG_DBG("httpclient_init_with_domain: fcntl(F_GETFL) failed\n");
         close(httpclient->sockfd);
         return -1;
     }
 
     if (fcntl(httpclient->sockfd, F_SETFL, flags | O_NONBLOCK) == -1) {
-        userdbg_write("httpclient_init_with_domain: fcntl(F_SETFL) failed\n");
+        LOG_DBG("httpclient_init_with_domain: fcntl(F_SETFL) failed\n");
         close(httpclient->sockfd);
         return -1;
     }
@@ -124,7 +124,7 @@ static int httpclient_init_with_domain(httpclient_t* httpclient, hostinfor_t hos
     int ret = connect(httpclient->sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr));
     if (ret < 0) {
         if (errno != EINPROGRESS) {
-            userdbg_write("httpclient_init_with_domain: Connection failed\n");
+            LOG_DBG("httpclient_init_with_domain: Connection failed\n");
             close(httpclient->sockfd);
             return -1;
         }
@@ -151,7 +151,7 @@ int httpclient_deinit(httpclient_t* httpclient) {
     }
 
     if (close(httpclient->sockfd) < 0) {
-        userdbg_write("httpclient_deinit: Socket close failed\n");
+        LOG_DBG("httpclient_deinit: Socket close failed\n");
         return -1;
     }
 
@@ -195,7 +195,7 @@ int httpclient_send_post_msg(httpclient_t* httpclient, char* msg) {
                 usleep(2000);
                 continue;
             } else {
-                userdbg_write("httpclient_send_post_msg: send failure\n");
+                LOG_DBG("httpclient_send_post_msg: send failure\n");
                 httprequest_deinit(&req);
                 return -1;
             }

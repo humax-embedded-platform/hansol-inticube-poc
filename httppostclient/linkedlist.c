@@ -68,7 +68,6 @@ node_t* linklist_find_and_remove(linklist_t* list, int (*condition_cmp)(const vo
             node_t* clone = (node_t*)malloc(sizeof(node_t));
             if (clone == NULL) {
                 pthread_mutex_unlock(&list->m);
-                perror("Failed to allocate memory for node clone");
                 return NULL;
             }
 
@@ -76,7 +75,6 @@ node_t* linklist_find_and_remove(linklist_t* list, int (*condition_cmp)(const vo
             if (clone->data == NULL) {
                 free(clone);
                 pthread_mutex_unlock(&list->m);
-                perror("Failed to allocate memory for node data clone");
                 return NULL;
             }
 

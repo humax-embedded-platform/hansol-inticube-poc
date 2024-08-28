@@ -13,6 +13,7 @@
 #define REQUEST_FAIL_RETRY_MAX  5
 
 static task_t sendtask;
+static int    total_request_failure = 0;
 
 static int retry_list_add_exits_item(void* curr, void* new) {
     failure_request_t* req = (failure_request_t*)curr;
@@ -57,7 +58,7 @@ static void sendworker_task_handler(void* arg) {
     while (1)
     {
         if(recvworker_waitlist_size(&sw->rev_worker) >= MAX_HANDLE_REQUEST_PER_TIME) {
-            usleep(100*1000);
+            usleep(5*1000);
             continue;
         }
 
@@ -77,6 +78,8 @@ static void sendworker_task_handler(void* arg) {
             if (httpclient_init(&client, host) == 0) {
                 if (httpclient_send_post_msg(&client, sw->msg->msg) == 0) {
                     send_status = 0;
+                } else {
+                    httpclient_deinit(&client);
                 }
             }
 
@@ -103,7 +106,6 @@ static void sendworker_task_handler(void* arg) {
                 if(req->retry_count < REQUEST_FAIL_RETRY_MAX) {
                     req->retry_count++;
                 } else {
-                    userdbg_write("ssss delete: %s failure_count %d retry_count %d \n", req->host.adress.domain, req->retry_count, req->failure_count);
                     linklist_node_deinit(retry_item);
                     continue;
                 }
@@ -111,6 +113,8 @@ static void sendworker_task_handler(void* arg) {
                 if (httpclient_init(&client, req->host) == 0) {
                     if (httpclient_send_post_msg(&client, sw->msg->msg) == 0) {
                         send_status = 0;
+                    } else {
+                        httpclient_deinit(&client);
                     }
                 }
 
@@ -118,10 +122,9 @@ static void sendworker_task_handler(void* arg) {
                     linklist_add(&sw->failure_list, retry_item);
                     continue;
                 } else {
-                    //userdbg_write("ssss: %s failure_count %d retry_count %d \n", req->host.adress.domain, req->retry_count, req->failure_count);
                     req->retry_count = 0;
                     req->failure_count--;
-                    if(req->failure_count < 0) {
+                    if(req->failure_count <= 0) {
                         linklist_node_deinit(retry_item);
                     } else {
                         linklist_add(&sw->failure_list, retry_item);                        
@@ -146,17 +149,17 @@ int sendworker_set_request_count(sendworker_t* sw, int count) {
 
 int sendworker_init(sendworker_t* sw) {
     if (sw == NULL || sw->msg == NULL || sw->hostdb == NULL) {
-        userdbg_write("sendworker_init: Invalid arguments\n");
+        LOG_DBG("sendworker_init: Invalid arguments\n");
         return -1;
     }
 
     if (recvworker_init(&sw->rev_worker) != 0) {
-        userdbg_write("sendworker_init: recvworker_init failed\n");
+        LOG_DBG("sendworker_init: recvworker_init failed\n");
         return -1;
     }
 
     if (pthread_mutex_init(&sw->m, NULL) != 0) {
-        perror("Mutex destruction failed");
+        LOG_DBG("sendworker_init: Mutex destruction failed");
         return -1;
     }
 
@@ -167,7 +170,7 @@ int sendworker_init(sendworker_t* sw) {
 
     for (int i = 0; i < MAX_SEND_WORKER; ++i) {
         if (worker_init(&sw->workers[i], &sendtask) != 0) {
-            userdbg_write("sendworker_init: worker_init failed for worker %d\n", i);
+            LOG_DBG("sendworker_init: worker_init failed for worker %d\n", i);
             for (int j = 0; j < i; ++j) {
                 worker_deinit(&sw->workers[j]);
             }
@@ -180,7 +183,7 @@ int sendworker_init(sendworker_t* sw) {
 
 void sendworker_deinit(sendworker_t* sw) {
     if (sw == NULL) {
-        userdbg_write("sendworker_deinit: sw is NULL\n");
+        LOG_DBG("sendworker_deinit: sw is NULL\n");
         return;
     }
 

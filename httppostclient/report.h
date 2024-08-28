@@ -14,9 +14,9 @@ typedef struct report_t
     linklist_t error_list;
 } report_t;
 
-void report_init(report_t* rp);
-void report_deinit(report_t* rp);
-void report_add_result(report_t* rp, int error_code);
-void report_print_result(report_t* rp);
+void report_init(void);
+void report_deinit(void);
+void report_add_result(int error_code);
+void report_print_result(void);
 
 #endif
