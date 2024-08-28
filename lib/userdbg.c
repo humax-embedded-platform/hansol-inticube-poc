@@ -72,18 +72,18 @@ static void userdbg_task_handler(void* arg) {
     }
 }
 
-void userdbg_init() {
+int userdbg_init() {
     buffer_init(&g_userdbg.dbg_buffer,USERDBG_BUFFER_CAPACITY);
 
     if (pthread_mutex_init(&g_userdbg.m, NULL) != 0) {
         buffer_deinit(&g_userdbg.dbg_buffer);
-        return;
+        return -1;
     }
 
     if (pthread_cond_init(&g_userdbg.cond, NULL) != 0) {
         pthread_mutex_destroy(&g_userdbg.m);
         buffer_deinit(&g_userdbg.dbg_buffer);
-        return;
+        return -1;
     }
 
     userdbg_set_completed(USERDBG_INIT_STATUS_INPROGRESS);
@@ -94,7 +94,7 @@ void userdbg_init() {
         buffer_deinit(&g_userdbg.dbg_buffer);
         pthread_cond_destroy(&g_userdbg.cond);
         pthread_mutex_destroy(&g_userdbg.m);
-        return;
+        return -1;
     }
 }
 

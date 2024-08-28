@@ -6,6 +6,8 @@
 #include "message.h"
 #include "recvworker.h"
 #include "linkedlist.h"
+#include "clientmanager.h"
+
 #include <pthread.h>
 
 #define MAX_SEND_WORKER  10
@@ -19,18 +21,16 @@ typedef struct failure_request_t
 }failure_request_t;
 
 typedef struct sendworker {
-    dbclient*    hostdb;
     usermsg_t*   msg;
     worker_t     workers[MAX_SEND_WORKER];
     recvworker_t rev_worker;
-    int          request_count;
-    pthread_mutex_t m;
+    clientmanager_t* client_mgr;
     linklist_t   failure_list;
+    pthread_mutex_t m;
 } sendworker_t;
 
-int sendworker_set_hostdb(sendworker_t* sw, dbclient* db);
 int sendworker_set_msg(sendworker_t* sw, usermsg_t* msg);
-int sendworker_set_request_count(sendworker_t* sw, int cound);
+int sendworker_set_clientmanager(sendworker_t* sw, clientmanager_t *mgr);
 int sendworker_init(sendworker_t* sw);
 void sendworker_deinit(sendworker_t* sw);
 

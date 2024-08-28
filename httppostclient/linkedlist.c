@@ -55,7 +55,7 @@ void linklist_add(linklist_t* list, node_t* item) {
     pthread_mutex_unlock(&list->m);
 }
 
-node_t* linklist_find_and_remove(linklist_t* list, int (*condition_cmp)(const void*, const void*), const void* inputcondition, int from_head) {
+node_t* linklist_find_and_remove(linklist_t* list, int (*condition_cmp)(void*, void*), void* inputcondition, int from_head) {
     if (list == NULL || condition_cmp == NULL) return NULL;
 
     pthread_mutex_lock(&list->m);
@@ -78,6 +78,7 @@ node_t* linklist_find_and_remove(linklist_t* list, int (*condition_cmp)(const vo
                 return NULL;
             }
 
+            clone->size = current->size;
             memcpy(clone->data, current->data, current->size);
 
             if (current->prev) {
@@ -109,7 +110,7 @@ node_t* linklist_find_and_remove(linklist_t* list, int (*condition_cmp)(const vo
 }
 
 
-void linklist_remove_with_condition(linklist_t* list, int (*condition_cmp)(const void*, const void*), const void* inputcondition, int from_head) {
+void linklist_remove_with_condition(linklist_t* list, int (*condition_cmp)(void*, void*), void* inputcondition, int from_head) {
     if (list == NULL || condition_cmp == NULL) return;
 
     pthread_mutex_lock(&list->m);

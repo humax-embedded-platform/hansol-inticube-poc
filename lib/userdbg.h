@@ -13,6 +13,6 @@ typedef struct userdbg_t
     int is_completed;
 } userdbg_t;
 
-void userdbg_init();
+int userdbg_init();
 void userdbg_deinit();
 void userdbg_write(const char* format, ...);

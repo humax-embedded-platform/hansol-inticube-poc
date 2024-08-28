@@ -137,8 +137,6 @@ int textdb_init(textdb_t* textdb, const char* dbpath) {
 
         memcpy((char*)data + offset, line, host_len);
         offset += host_len;
-
-        LOG_DBG("%s  port %d address_type %d protocol %d\n",line, port, address_type, protocol);
     }
 
     data = realloc(data, offset);

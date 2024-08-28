@@ -54,47 +54,35 @@ static void sendworker_task_handler(void* arg) {
     httpclient_t client;
     int remain_request = 0;
     int send_status = -1;
-    static int sendworker_wait_send_retry_count = 0;
+    static int sendworker_ready_retry_count = 0;
 
     while (1)
     {
-        if(recvworker_waitlist_size(&sw->rev_worker) >= MAX_HANDLE_REQUEST_PER_TIME) {
-            usleep(5*1000);
-            continue;
-        }
-
-        pthread_mutex_lock(&sw->m);
-        remain_request = sw->request_count--;
-        if(remain_request <= 0 ) {
-            sendworker_wait_send_retry_count++;
-        }
-        pthread_mutex_unlock(&sw->m);
-
-        if(remain_request > 0) {
-            if(dbclient_gethost(sw->hostdb, &host)) {
-                break;
-            }
-
-            send_status = -1;
-            if (httpclient_init(&client, host) == 0) {
+        if(clientmanager_is_init_client_completed(sw->client_mgr) == 0) {
+            if(clientmanager_get_ready(sw->client_mgr,&client) == 0) {
+                send_status = -1;
                 if (httpclient_send_post_msg(&client, sw->msg->msg) == 0) {
                     send_status = 0;
                 } else {
                     httpclient_deinit(&client);
                 }
-            }
 
-            if(send_status < 0) {
-                sendworker_add_to_retry_list(&sw->failure_list,host);
-                continue;
-            }
+                if(send_status < 0) {
+                    sendworker_add_to_retry_list(&sw->failure_list,client.host);
+                    continue;
+                }
 
-            recvworker_add_to_waitlist(&sw->rev_worker, client, sw->msg);
+                recvworker_add_to_waitlist(&sw->rev_worker, client, sw->msg);
+            }
         } else {
-            if(sendworker_wait_send_retry_count < MAX_SEND_WORKER) {
+            pthread_mutex_lock(&sw->m);
+            sendworker_ready_retry_count++;
+            if(sendworker_ready_retry_count < MAX_SEND_WORKER) {
+                pthread_mutex_unlock(&sw->m);
                 continue;
             }
 
+            pthread_mutex_unlock(&sw->m);
             if(linklist_get_size(&sw->failure_list) <= 0) {
                 break;
             } else {
@@ -139,18 +127,16 @@ static void sendworker_task_handler(void* arg) {
     }
 }
 
-int sendworker_set_hostdb(sendworker_t* sw, dbclient* db) {
-    sw->hostdb = db;
-}
+
 int sendworker_set_msg(sendworker_t* sw, usermsg_t* msg) {
     sw->msg = msg;
 }
-int sendworker_set_request_count(sendworker_t* sw, int count) {
-    sw->request_count = count;
-}
 
+int sendworker_set_clientmanager(sendworker_t* sw, clientmanager_t *mgr) {
+    sw->client_mgr = mgr;
+}
 int sendworker_init(sendworker_t* sw) {
-    if (sw == NULL || sw->msg == NULL || sw->hostdb == NULL) {
+    if (sw == NULL || sw->msg == NULL || sw->client_mgr == NULL) {
         LOG_DBG("sendworker_init: Invalid arguments\n");
         return -1;
     }
@@ -166,7 +152,6 @@ int sendworker_init(sendworker_t* sw) {
     }
 
     linklist_init(&sw->failure_list);
-
     sendtask.task_handler = sendworker_task_handler;
     sendtask.arg = sw;
 

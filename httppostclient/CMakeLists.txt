@@ -15,6 +15,7 @@ add_executable(httppostclient
     cmd.c
     config.c
     report.c
+    clientmanager.c
 )
 
 # Link the static library to the executable
