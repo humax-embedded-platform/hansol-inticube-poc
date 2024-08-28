@@ -9,12 +9,14 @@
 #include <signal.h>
 #include <sys/wait.h>
 #include "log.h"
+#include <limits.h>
 #include "worker.h"
 #include "common.h"
 #include "userdbg.h"
 
 #define LOG_WRITE_RETRY_MAX     5
-#define LOGSERVER_EXECUTABLE_FILE "./logservice"
+#define LOGSERVER_EXECUTABLE_PATH_MAX 1024
+#define LOGSERVER_EXECUTABLE_FILE "logservice"
 
 #define LOG_INIT_STATUS_INITIALIZED     1
 #define LOG_INIT_STATUS_UNINITIALIZED   0
@@ -31,6 +33,27 @@ static int start_log_server(void) {
         return -1;
     }
 
+    char exe_path[LOGSERVER_EXECUTABLE_PATH_MAX];
+    ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
+    if (len == -1) {
+        LOG_DBG("start_log_server: Failed to get current executable path\n");
+        return -1;
+    }
+
+    exe_path[len] = '\0';
+
+    char* last_slash = strrchr(exe_path, '/');
+    if (last_slash != NULL) {
+        *(last_slash + 1) = '\0';
+    } else {
+        LOG_DBG("start_log_server: Failed to parse current executable directory\n");
+        return -1;
+    }
+
+    char log_server_path[LOGSERVER_EXECUTABLE_PATH_MAX];
+    snprintf(log_server_path, sizeof(log_server_path), "%s%s", exe_path, LOGSERVER_EXECUTABLE_FILE);
+
+    LOG_DBG("%s\n",log_server_path);
     pid_t pid = fork();
 
     if (pid < 0) {
@@ -39,8 +62,8 @@ static int start_log_server(void) {
     }
 
     if (pid == 0) {
-        if (execlp(LOGSERVER_EXECUTABLE_FILE, LOGSERVER_EXECUTABLE_FILE, (char *)NULL) == -1) {
-            LOG_DBG("start_log_server: Failed to start log server");
+        if (execlp(log_server_path, log_server_path, (char *)NULL) == -1) {
+            perror("start_log_server: Failed to start log server");
             return -1;
         }
     } else {

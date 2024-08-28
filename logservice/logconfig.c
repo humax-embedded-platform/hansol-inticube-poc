@@ -8,10 +8,10 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <errno.h>
-
+#include <limits.h>
 
 #define DEFAULT_LOG_FILE_PATH  "./"
-
+#define LOGSERVER_EXECUTABLE_PATH_MAX 1024
 
 static logconfig_t      config;
 static logconfig_item_t config_item;
@@ -25,7 +25,27 @@ static logconfig_handler_t handlers[CONFIG_MAX] = {
 };
 
 static void config_init_default() {
-    strncpy(config_item.log_path, DEFAULT_LOG_FILE_PATH, sizeof(config_item.log_path) - 1);
+    char exe_path[LOGSERVER_EXECUTABLE_PATH_MAX];
+    ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
+
+    if (len == -1) {
+        strncpy(config_item.log_path, DEFAULT_LOG_FILE_PATH, sizeof(config_item.log_path) - 1);
+        config_item.log_path[sizeof(config_item.log_path) - 1] = '\0';
+        return;
+    }
+
+    exe_path[len] = '\0';
+
+    char* last_slash = strrchr(exe_path, '/');
+    if (last_slash != NULL) {
+        *(last_slash + 1) = '\0';
+    } else {
+        strncpy(config_item.log_path, DEFAULT_LOG_FILE_PATH, sizeof(config_item.log_path) - 1);
+        config_item.log_path[sizeof(config_item.log_path) - 1] = '\0';
+        return;
+    }
+
+    strncpy(config_item.log_path, exe_path, sizeof(config_item.log_path) - 1);
     config_item.log_path[sizeof(config_item.log_path) - 1] = '\0';
 }
 
