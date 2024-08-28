@@ -13,6 +13,8 @@
 #include "httprequest.h"
 #include "userdbg.h"
 
+#define HTTP_REQUEST_RETRY_MAX  200
+
 static int httpclient_init_with_ipv4(httpclient_t* httpclient, hostinfor_t host) {
     if (httpclient == NULL) {
         return -1;
@@ -187,11 +189,17 @@ int httpclient_send_post_msg(httpclient_t* httpclient, char* msg) {
 
     size_t msg_length = strlen(req.message);
     size_t total_send = 0;
+    int    retry_count = 0;
 
     while (total_send < msg_length) {
         ssize_t sent = send(httpclient->sockfd, req.message + total_send, msg_length - total_send, 0);
         if (sent == -1) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                retry_count++;
+                if(retry_count >= HTTP_REQUEST_RETRY_MAX) {
+                    httprequest_deinit(&req);
+                    return -1;
+                }
                 usleep(2000);
                 continue;
             } else {

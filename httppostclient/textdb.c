@@ -74,10 +74,12 @@ int textdb_init(textdb_t* textdb, const char* dbpath) {
     }
 
     char line[MAX_LINE_LENGTH];
+    char addr[MAX_LINE_LENGTH];
     size_t offset = 0;
     uint16_t port = 0;
     char address_type = HOST_IPV4_TYPE;
     char protocol = HTTP_PROTOCOL;
+    int host_len = 0;
     while (fgets(line, sizeof(line), file)) {
         size_t line_len = strlen(line);
         if (line[line_len - 1] == '\n') {
@@ -86,8 +88,12 @@ int textdb_init(textdb_t* textdb, const char* dbpath) {
         }
 
         port = get_port_info(line);
+        host_len = get_host_length(line);
 
-        if (is_ipv4_address(line)) {
+        memcpy(addr,line,host_len);
+        addr[host_len] = '\0';
+
+        if (is_ipv4_address(addr)) {
             if(port == 0) {
                 LOG_DBG("host ip should include port number: %s\n", line);
                 continue;
@@ -98,24 +104,22 @@ int textdb_init(textdb_t* textdb, const char* dbpath) {
         } else if(is_http_address(line)) {
             if(port == 0) {
                 port = HTTP_DEFAILT_PORT;
-                address_type = HOST_DOMAIN_TYPE;
-                protocol = HTTP_PROTOCOL;
             }
+            address_type = HOST_DOMAIN_TYPE;
+            protocol = HTTP_PROTOCOL;
         } else if(is_https_address(line)){
             if(port == 0) {
                 port = HTTPS_DEFAULT_PORT;
-                address_type = HOST_DOMAIN_TYPE;
-                protocol = HTTPS_PROTOCOL;
             }
+            address_type = HOST_DOMAIN_TYPE;
+            protocol = HTTPS_PROTOCOL;
         } else {
             if(port == 0) { 
                 port = HTTP_DEFAILT_PORT;
-                address_type = HOST_DOMAIN_TYPE;
-                protocol = HTTP_PROTOCOL;
             }
+            address_type = HOST_DOMAIN_TYPE;
+            protocol = HTTP_PROTOCOL;
         }
-
-        int host_len = get_host_length(line);
 
         uint16_t total_len = sizeof(uint16_t) + sizeof(uint16_t) + sizeof(char) + sizeof(char) + host_len;
 

@@ -71,6 +71,7 @@ static void sendworker_task_handler(void* arg) {
         pthread_mutex_unlock(&sw->m);
 
         if(remain_request > 0) {
+            
             if(dbclient_gethost(sw->hostdb, &host)) {
                 break;
             }
