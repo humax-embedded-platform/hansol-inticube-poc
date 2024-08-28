@@ -56,7 +56,11 @@ static int report_error_code_cmp(void* curr, void* input_check) {
 
 static void report_print_error(void* curr, size_t size) {
     error_code_t* error_data = (error_code_t*)curr;
-    LOG_DBG("Request Respond: Code %d, Count: %d\n", error_data->error_code, error_data->count);
+    if(error_data->error_code == 28) {
+        LOG_DBG("Request Respond: Code %d (Timeout), Count: %d\n", error_data->error_code, error_data->count);
+    } else {
+        LOG_DBG("Request Respond: Code %d, Count: %d\n", error_data->error_code, error_data->count);        
+    }
 }
 
 int report_init() {
