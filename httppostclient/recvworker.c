@@ -65,7 +65,7 @@ static int recvworker_httprespond_timeout_handler(recvworker_t* rw, http_resp_t*
 
         log_write(buffer, log_len);
 
-        //userdbg_write("Host: %s Port %d Respond Code: %d (Timeout)\n", rsp->client.host.adress.domain, rsp->client.host.port, 28);
+        LOG_DBG("Host: %s Port %d Respond Code: %d (Timeout)\n", rsp->client.host.adress.domain, rsp->client.host.port, 28);
         report_add_result(28);
     }
 
@@ -102,7 +102,7 @@ static int recvworker_httprespond_event_handler(recvworker_t* rw, http_resp_t* r
         log_write(buffer, log_len);
         int error = recvworker_analyze_httprespond(msg, len);
 
-        //userdbg_write("Host: %s Port %d Respond Code: %d (Success)\n", rsp->client.host.adress.domain, rsp->client.host.port, error);
+        LOG_DBG("Host: %s Port %d Respond Code: %d (Success)\n", rsp->client.host.adress.domain, rsp->client.host.port, error);
         report_add_result(error);
     }
 
@@ -144,7 +144,7 @@ static int recvworker_check_client_waiting_cmp(void *current, void* input) {
 
 static void recvworker_remove_from_waitlist(recvworker_t* rw, httpclient_t client) {
     if (epoll_ctl(rw->epoll_fd, EPOLL_CTL_DEL, client.sockfd, NULL) == -1) {
-        perror("epoll_ctl: EPOLL_CTL_DEL");
+        LOG_DBG("epoll_ctl: EPOLL_CTL_DEL");
     }
 
     httpclient_deinit(&client);
@@ -209,12 +209,13 @@ static void recvworker_wait_respond_func(void* arg) {
         is_waitcompleted  = linklist_isempty(rw->wait_resp_list);
 
         if (is_sendcompleted == 1 && is_waitcompleted == 1) {
+            report_print_result();
             break;
         }
 
         int nfds = epoll_wait(rw->epoll_fd, events, MAX_RESPOND_PER_TIME, 100);
         if (nfds < 0) {
-            printf("epoll_wait error %d\n", nfds);
+            LOG_DBG("epoll_wait error %d\n", nfds);
             break;
         }
 
@@ -253,12 +254,12 @@ int recvworker_init(recvworker_t* rw) {
 
     rw->epoll_fd = epoll_create1(0);
     if (rw->epoll_fd == -1) {
-        printf("recvworker_init epoll_create1 error");
+        LOG_DBG("recvworker_init epoll_create1 error");
         return -1;
     }
 
     if (pthread_mutex_init(&rw->m,NULL) != 0) {
-        perror("Mutex init failed");
+        LOG_DBG("recvworker_init: Mutex init failed");
         return -1;
     }
 
@@ -310,7 +311,7 @@ int recvworker_add_to_waitlist(recvworker_t* rw, httpclient_t client, usermsg_t*
     event.data.fd = client.sockfd;
 
     if (epoll_ctl(rw->epoll_fd, EPOLL_CTL_ADD, client.sockfd, &event) == -1) {
-        printf("recvworker_add_to_waitlist error %d", client.sockfd);
+        LOG_DBG("recvworker_add_to_waitlist error %d", client.sockfd);
         return -1;
     }
 

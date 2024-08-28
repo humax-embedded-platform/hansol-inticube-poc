@@ -8,87 +8,106 @@
 
 #define USERDBG_BUFFER_CAPACITY 1000
 #define USERDBG_BUFFER_SIZE     1024
-// Static declaration of userdbg_t variable
+
+#define USERDBG_STATUS_COMPLETED   1
+#define USERDBG_INIT_STATUS_INPROGRESS 0
+
 static userdbg_t g_userdbg; 
 static task_t    g_dbgtask;
 
+static int is_buffer_have_data = 0;
 
 static void userdbg_set_completed(int status) {
     pthread_mutex_lock(&g_userdbg.m);
     g_userdbg.is_completed = status;
     pthread_mutex_unlock(&g_userdbg.m);
+
+    pthread_cond_signal(&g_userdbg.cond);
 }
 
-static int userdbg_get_completed() {
-    int status;
+static void userdbg_set_buffer_status(int status) {
     pthread_mutex_lock(&g_userdbg.m);
-    status = g_userdbg.is_completed;
+    is_buffer_have_data = status;
     pthread_mutex_unlock(&g_userdbg.m);
 
-    return status;
+    pthread_cond_signal(&g_userdbg.cond);
 }
 
 static void userdbg_task_handler(void* arg) {
     log_entry_t entry;
-    char dbg_buff[USERDBG_BUFFER_SIZE];
 
     while (1)
     {
-        if(buffer_read(&g_userdbg.dbg_buffer, &entry) == 0) {
-            memcpy(dbg_buff,entry.data,entry.size);
-            dbg_buff[entry.size] = '\0';
-            printf("%s", dbg_buff);
-            buffer_log_entry_deinit(&entry);
-        } else {
-            if(userdbg_get_completed() == 1) {
-                while (buffer_read(&g_userdbg.dbg_buffer, &entry) == 0) {
-                    printf("%s", entry.data);
-                    buffer_log_entry_deinit(&entry);
-                }
-                break;
-            } else{
-                usleep(50*1000);
+        pthread_mutex_lock(&g_userdbg.m);
+
+        while (g_userdbg.is_completed == USERDBG_INIT_STATUS_INPROGRESS && is_buffer_have_data == 0) {
+            pthread_cond_wait(&g_userdbg.cond, &g_userdbg.m);
+        }
+
+        if(g_userdbg.is_completed == USERDBG_STATUS_COMPLETED) {
+            while (buffer_read(&g_userdbg.dbg_buffer, &entry) == 0) {
+                entry.data[entry.size] = '\0';
+                printf("%s", entry.data);
+                buffer_log_entry_deinit(&entry);
             }
+
+            pthread_mutex_unlock(&g_userdbg.m);    
+            break;       
+        }
+
+        if(is_buffer_have_data == 1) {
+            is_buffer_have_data = 0;
+        }
+    
+        pthread_mutex_unlock(&g_userdbg.m);
+
+        while (buffer_read(&g_userdbg.dbg_buffer, &entry) == 0) {
+            if (entry.size >= USERDBG_BUFFER_SIZE) {
+                entry.size = USERDBG_BUFFER_SIZE - 1;
+            }
+            entry.data[entry.size] = '\0';
+            printf("%s", entry.data);
+            buffer_log_entry_deinit(&entry);
         }
     }
-    
 }
 
 void userdbg_init() {
     buffer_init(&g_userdbg.dbg_buffer,USERDBG_BUFFER_CAPACITY);
 
     if (pthread_mutex_init(&g_userdbg.m, NULL) != 0) {
-        perror("Failed to initialize mutex");
         buffer_deinit(&g_userdbg.dbg_buffer);
         return;
     }
 
-    userdbg_set_completed(0);
+    if (pthread_cond_init(&g_userdbg.cond, NULL) != 0) {
+        pthread_mutex_destroy(&g_userdbg.m);
+        buffer_deinit(&g_userdbg.dbg_buffer);
+        return;
+    }
+
+    userdbg_set_completed(USERDBG_INIT_STATUS_INPROGRESS);
 
     g_dbgtask.task_handler = userdbg_task_handler;
     g_dbgtask.arg = (void*)&g_userdbg;
     if (worker_init(&g_userdbg.dbg_worker, &g_dbgtask) != 0) {
-        perror("Failed to initialize worker");
         buffer_deinit(&g_userdbg.dbg_buffer);
+        pthread_cond_destroy(&g_userdbg.cond);
         pthread_mutex_destroy(&g_userdbg.m);
         return;
     }
 }
 
 void userdbg_deinit() {
-    userdbg_set_completed(1);
-
+    userdbg_set_completed(USERDBG_STATUS_COMPLETED);
     worker_deinit(&g_userdbg.dbg_worker);
     buffer_deinit(&g_userdbg.dbg_buffer);
+    pthread_cond_destroy(&g_userdbg.cond);
     pthread_mutex_destroy(&g_userdbg.m);
 }
 
 void userdbg_write(const char* format, ...) {
-    if (format == NULL) {
-        return;
-    }
-
-    if (userdbg_get_completed() == 1) {
+    if (format == NULL || g_userdbg.is_completed == USERDBG_STATUS_COMPLETED) {
         return;
     }
 
@@ -102,9 +121,10 @@ void userdbg_write(const char* format, ...) {
     va_end(args);
 
     if (length < 0) {
-        perror("Formatting error");
         return;
     }
 
     buffer_write(&g_userdbg.dbg_buffer, buffer, (size_t)length);
+
+    userdbg_set_buffer_status(1);
 }

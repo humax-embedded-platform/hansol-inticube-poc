@@ -1,4 +1,5 @@
 #include "message.h"
+#include "userdbg.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,7 +11,7 @@ int message_init(usermsg_t* msg, const char* filepath) {
 
     FILE* file = fopen(filepath, "r");
     if (file == NULL) {
-        perror("Failed to open file");
+        LOG_DBG("Failed to open file");
         msg->msg = NULL;
         return -1;
     }
@@ -20,7 +21,7 @@ int message_init(usermsg_t* msg, const char* filepath) {
     fseek(file, 0, SEEK_SET);
 
     if (filesize < 0) {
-        perror("Failed to determine file size");
+        LOG_DBG("Failed to determine file size");
         fclose(file);
         msg->msg = NULL;
         return -1;
@@ -28,14 +29,14 @@ int message_init(usermsg_t* msg, const char* filepath) {
 
     msg->msg = (char*)malloc(filesize + 1);
     if (msg->msg == NULL) {
-        perror("Failed to allocate memory");
+        LOG_DBG("Failed to allocate memory");
         fclose(file);
         return -1;
     }
 
     size_t read_size = fread(msg->msg, 1, filesize, file);
     if (read_size != (size_t)filesize) {
-        perror("Failed to read file content");
+        LOG_DBG("Failed to read file content");
         free(msg->msg);
         msg->msg = NULL;
         fclose(file);

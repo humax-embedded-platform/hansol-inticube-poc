@@ -28,7 +28,7 @@ int main(int argc, char* argv[]) {
     if (dbclient_init(&db, TEXT_DB, config_get_host_file()) < 0) {
         log_deinit();
         config_deinit();
-        printf("Can not init database\n");
+        LOG_DBG("Can not init database\n");
         return -1;
     }
 
@@ -36,7 +36,7 @@ int main(int argc, char* argv[]) {
         dbclient_deinit(&db);
         log_deinit();
         config_deinit();
-        printf("Can not init message\n");
+        LOG_DBG("Can not init message\n");
         return -1;
     }
 
@@ -51,7 +51,7 @@ int main(int argc, char* argv[]) {
         report_deinit();
         log_deinit();
         config_deinit();
-        printf("Can not init worker\n");
+        LOG_DBG("Can not init worker\n");
         return -1;
     }
 

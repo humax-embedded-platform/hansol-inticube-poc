@@ -5,6 +5,7 @@
 #include <string.h>
 #include "report.h"
 #include "log.h"
+#include "userdbg.h"
 
 static report_t g_report;
 static struct timeval first_request_time;
@@ -32,7 +33,7 @@ static int report_print_time_to_log(void) {
         start_time_str, end_time_str);
 
     if (log_len < 0 || log_len >= sizeof(buffer)) {
-        fprintf(stderr, "Error creating log message or buffer too small.\n");
+        LOG_DBG("Error creating log message or buffer too small.\n");
         return -1;
     }
 
@@ -55,7 +56,7 @@ static int report_error_code_cmp(void* curr, void* input_check) {
 
 static void report_print_error(void* curr, size_t size) {
     error_code_t* error_data = (error_code_t*)curr;
-    printf("Respond Code: %d, Count: %d\n", error_data->error_code, error_data->count);
+    LOG_DBG("Respond Code: %d, Count: %d\n", error_data->error_code, error_data->count);
 }
 
 void report_init() {
@@ -64,7 +65,6 @@ void report_init() {
 }
 
 void report_deinit() {
-    report_print_result();
     linklist_deinit(&g_report.error_list);
 }
 
@@ -82,8 +82,8 @@ void report_add_result(int error_code) {
 
 void report_print_result() {
     node_t* current = (node_t*)&g_report.error_list.head;
-    printf("HTTP Report Results:\n");
-    printf("====================\n");
+    LOG_DBG("HTTP Report Results:\n");
+    LOG_DBG("====================\n");
     linklist_for_each(&g_report.error_list, report_print_error);
 
     report_print_time_to_log();

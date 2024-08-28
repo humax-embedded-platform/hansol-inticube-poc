@@ -1,6 +1,7 @@
-#include "worker.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include "worker.h"
+#include "userdbg.h"
 
 static void* worker_thread_func(void* arg) {
     worker_t* w = (worker_t*)arg;
@@ -21,7 +22,7 @@ int worker_init(worker_t* w, task_t* task) {
     w->active = true;
 
     if (pthread_create(&w->thread, NULL, worker_thread_func, w) != 0) {
-        perror("Failed to create thread");
+        LOG_DBG("worker_init: Failed to create thread");
         return -1;
     }
 

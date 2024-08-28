@@ -1,6 +1,3 @@
-#include "log.h"
-#include "worker.h"
-#include "common.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,6 +8,10 @@
 #include <errno.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include "log.h"
+#include "worker.h"
+#include "common.h"
+#include "userdbg.h"
 
 #define LOG_WRITE_RETRY_MAX     5
 #define LOGSERVER_EXECUTABLE_FILE "./logservice"
@@ -26,20 +27,20 @@ static int  write_buff_count = 0;
 
 static int start_log_server(void) {
     if (log_client.logserver_pid > 0) {
-        printf("Log server is already running with PID: %d\n", log_client.logserver_pid);
+        LOG_DBG("start_log_server: Log server is already running with PID: %d\n", log_client.logserver_pid);
         return -1;
     }
 
     pid_t pid = fork();
 
     if (pid < 0) {
-        perror("Failed to fork process for log server");
+        LOG_DBG("start_log_server: Failed to fork process for log server");
         return -1;
     }
 
     if (pid == 0) {
         if (execlp(LOGSERVER_EXECUTABLE_FILE, LOGSERVER_EXECUTABLE_FILE, (char *)NULL) == -1) {
-            perror("Failed to start log server");
+            LOG_DBG("start_log_server: Failed to start log server");
             return -1;
         }
     } else {
@@ -51,12 +52,12 @@ static int start_log_server(void) {
 
 static void stop_log_server(void) {
     if (log_client.logserver_pid <= 0) {
-        printf("Log server is not running.\n");
+        LOG_DBG("Log server is not running.\n");
         return;
     }
 
     if (kill(log_client.logserver_pid, SIGTERM) == -1) {
-        perror("Failed to send SIGTERM to log server");
+        LOG_DBG("Failed to send SIGTERM to log server");
         return;
     }
 
@@ -138,7 +139,7 @@ void log_worker_func(void* arg) {
                             write_buff_count = 0;
                             break;
                         }
-                        perror("Failed to send log data");
+                        LOG_DBG("Failed to send log data");
                     } else {
                         write_start_index += bytes_written;
                         write_buff_count -= bytes_written;
@@ -166,19 +167,19 @@ int log_init(const char* log_path) {
 
     log_client.log_fd = socket(AF_UNIX, SOCK_DGRAM, 0);
     if (log_client.log_fd < 0) {
-        perror("Failed to create socket");
+        LOG_DBG("Failed to create socket");
         return -1;
     }
 
     int flags = fcntl(log_client.log_fd, F_GETFL, 0);
     if (flags < 0) {
-        perror("Failed to get socket flags");
+        LOG_DBG("Failed to get socket flags");
         close(log_client.log_fd);
         return -1;
     }
 
     if (fcntl(log_client.log_fd, F_SETFL, flags | O_NONBLOCK) < 0) {
-        perror("Failed to set socket to non-blocking mode");
+        LOG_DBG("Failed to set socket to non-blocking mode");
         close(log_client.log_fd);
         return -1;
     }
@@ -195,13 +196,13 @@ int log_init(const char* log_path) {
     logtask.task_handler = log_worker_func;
     logtask.arg = (void*)&log_client;
     if (worker_init(&log_client.worker, &logtask) < 0) {
-        perror("Failed to initialize worker");
+        LOG_DBG("Failed to initialize worker");
         close(log_client.log_fd);
         return -1;
     }
 
     if (pthread_mutex_init(&log_client.m, NULL) != 0) {
-        perror("Mutex initialization failed");
+        LOG_DBG("Mutex initialization failed");
         close(log_client.log_fd);
         return -1;
     }
@@ -233,7 +234,7 @@ void log_deinit() {
 
 void log_write(char* buff, size_t len) {
     if (log_get_init_status() ==  LOG_INIT_STATUS_UNINITIALIZED) {
-        printf("Logging is disabled. Cannot write to buffer.\n");
+        LOG_DBG("Logging is disabled. Cannot write to buffer.\n");
         return;
     }
 
@@ -247,7 +248,7 @@ void log_config(int id,const char* data) {
 
     sockfd = socket(AF_UNIX, SOCK_DGRAM, 0);
     if (sockfd < 0) {
-        perror("socket failed");
+        LOG_DBG("socket failed");
         return;
     }
 
@@ -260,7 +261,7 @@ void log_config(int id,const char* data) {
     msg.data[sizeof(msg.data) - 1] = '\0';
 
     if (sendto(sockfd, &msg, sizeof(msg), 0, (struct sockaddr*)&addr, sizeof(struct sockaddr_un)) < 0) {
-        perror("sendto failed");
+        LOG_DBG("sendto failed");
     }
 
     close(sockfd);
