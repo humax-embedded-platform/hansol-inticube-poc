@@ -8,6 +8,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <string.h>
+#include "report.h"
 
 #define REQUEST_FAIL_COUNT_MAX_PER_ENTRY  20
 #define REQUEST_FAIL_RETRY_MAX  5
@@ -106,6 +107,7 @@ static void sendworker_task_handler(void* arg) {
                 if(req->retry_count < REQUEST_FAIL_RETRY_MAX) {
                     req->retry_count++;
                 } else {
+                    report_add_req_failure(req->failure_count);
                     linklist_node_deinit(retry_item);
                     continue;
                 }

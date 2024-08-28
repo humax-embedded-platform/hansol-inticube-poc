@@ -1,6 +1,3 @@
-#include "recvworker.h"
-#include "log.h"
-#include "userdbg.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -10,6 +7,10 @@
 #include <arpa/inet.h>
 #include <time.h>
 #include <sys/time.h>
+#include "recvworker.h"
+#include "log.h"
+#include "userdbg.h"
+#include "report.h"
 
 #define RECV_WORKER_STATUS_INPROCESS 0
 #define RECV_WORKER_STATUS_DONE 1
@@ -66,7 +67,7 @@ static int recvworker_httprespond_timeout_handler(recvworker_t* rw, http_resp_t*
         log_write(buffer, log_len);
 
         LOG_DBG("Host: %s Port %d Respond Code: %d (Timeout)\n", rsp->client.host.adress.domain, rsp->client.host.port, 28);
-        report_add_result(28);
+        report_add_resp_code(28);
     }
 
     return 0;
@@ -103,7 +104,7 @@ static int recvworker_httprespond_event_handler(recvworker_t* rw, http_resp_t* r
         int error = recvworker_analyze_httprespond(msg, len);
 
         LOG_DBG("Host: %s Port %d Respond Code: %d (Success)\n", rsp->client.host.adress.domain, rsp->client.host.port, error);
-        report_add_result(error);
+        report_add_resp_code(error);
     }
 
     return 0;
