@@ -68,68 +68,70 @@ static void sendworker_task_handler(void* arg) {
                         break;
                     } else {
                         send_retry++;
-                        usleep(10*1000);
+                        usleep(2000);
                     }
                 }
-                
-                
+
                 if(send_status < 0) {
                     httpclient_deinit(&client);
-                    sendworker_add_to_retry_list(&sw->failure_list,client.host);
+                    //sendworker_add_to_retry_list(&sw->failure_list,client.host);
                     continue;
                 }
 
                 recvworker_add_to_waitlist(&sw->rev_worker, client, sw->msg);
             }
-        } else {
-            pthread_mutex_lock(&sw->m);
-            sendworker_ready_retry_count++;
-            if(sendworker_ready_retry_count < MAX_SEND_WORKER) {
-                pthread_mutex_unlock(&sw->m);
-                continue;
-            }
+        // } else {
+        //     pthread_mutex_lock(&sw->m);
+        //     sendworker_ready_retry_count++;
+        //     if(sendworker_ready_retry_count < MAX_SEND_WORKER) {
+        //         pthread_mutex_unlock(&sw->m);
+        //         continue;
+        //     }
 
-            pthread_mutex_unlock(&sw->m);
-            if(linklist_get_size(&sw->failure_list) <= 0) {
-                break;
-            } else {
-                node_t* retry_item = linklist_remove_from_tail(&sw->failure_list);
-                if(retry_item == NULL) {
-                    continue;
-                }
+        //     pthread_mutex_unlock(&sw->m);
+        //     if(linklist_get_size(&sw->failure_list) <= 0) {
+        //         break;
+        //     } else {
+        //         node_t* retry_item = linklist_remove_from_tail(&sw->failure_list);
+        //         if(retry_item == NULL) {
+        //             continue;
+        //         }
     
-                failure_request_t* req = (failure_request_t*)retry_item->data;
-                if(req->retry_count < REQUEST_FAIL_RETRY_MAX) {
-                    req->retry_count++;
-                } else {
-                    report_add_req_failure(req->failure_count);
-                    linklist_node_deinit(retry_item);
-                    continue;
-                }
-                int send_status = -1;
-                if (httpclient_init(&client, req->host) == 0) {
-                    if (httpclient_send_post_msg(&client, sw->msg->msg) == 0) {
-                        send_status = 0;
-                    } else {
-                        httpclient_deinit(&client);
-                    }
-                }
+        //         failure_request_t* req = (failure_request_t*)retry_item->data;
+        //         if(req->retry_count < REQUEST_FAIL_RETRY_MAX) {
+        //             req->retry_count++;
+        //         } else {
+        //             report_add_req_failure(req->failure_count);
+        //             linklist_node_deinit(retry_item);
+        //             continue;
+        //         }
+        //         int send_status = -1;
+        //         if (httpclient_init(&client, req->host) == 0) {
+        //             if (httpclient_send_post_msg(&client, sw->msg->msg) == 0) {
+        //                 send_status = 0;
+        //             } else {
+        //                 httpclient_deinit(&client);
+        //             }
+        //         }
 
-                if(send_status < 0) {
-                    linklist_add(&sw->failure_list, retry_item);
-                    continue;
-                } else {
-                    req->retry_count = 0;
-                    req->failure_count--;
-                    if(req->failure_count <= 0) {
-                        linklist_node_deinit(retry_item);
-                    } else {
-                        linklist_add(&sw->failure_list, retry_item);                        
-                    }
-                }
+        //         if(send_status < 0) {
+        //             linklist_add(&sw->failure_list, retry_item);
+        //             continue;
+        //         } else {
+        //             req->retry_count = 0;
+        //             req->failure_count--;
+        //             if(req->failure_count <= 0) {
+        //                 linklist_node_deinit(retry_item);
+        //             } else {
+        //                 linklist_add(&sw->failure_list, retry_item);                        
+        //             }
+        //         }
 
-                recvworker_add_to_waitlist(&sw->rev_worker, client, sw->msg);
-            }
+        //         recvworker_add_to_waitlist(&sw->rev_worker, client, sw->msg);
+        //     }
+        } else {
+            LOG_DBG("END OF SENDWORKER\n");
+            break;
         }
     }
 }

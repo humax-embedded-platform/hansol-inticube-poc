@@ -9,8 +9,8 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define MAX_EVENTS 20
-#define CLIENT_CONNECT_RETRY_MAX 3
+#define MAX_EVENTS 50
+#define CLIENT_CONNECT_RETRY_MAX 200
 
 static task_t connection_init_task;
 static task_t connection_monitor_task;
@@ -19,7 +19,7 @@ static task_t connection_retry_task;
 static void clientmanager_wait_ready(clientmanager_t* mgr, httpclient_t client) {
     if (mgr == NULL) return;
     struct epoll_event event;
-    event.events = EPOLLOUT | EPOLLET;
+    event.events = EPOLLOUT | EPOLLONESHOT;
     event.data.fd = client.sockfd;
 
     if (epoll_ctl(mgr->wait_ready_list_fd, EPOLL_CTL_ADD, client.sockfd, &event) == -1) {
@@ -73,30 +73,13 @@ static int clientmanager_check_client_timeout_cmp(void *current, void* input) {
 
     long total_diff_ms = (seconds_diff * 1000) + (microseconds_diff / 1000);
 
-    if (total_diff_ms >= (*timeout * 1000)) {
+    if (total_diff_ms >= (*timeout)) {
         return 1;
     }
 
     return 0;
 }
 
-static int clientmanager_check_client_connect_retry_cmp(void *current, void* input) {
-
-    if(current == NULL) {
-        return 0;
-    }
-
-    client_init_info_t* clientinfo = (client_init_info_t*)current;
-
-    time_t current_time = time(NULL);
-
-    clientinfo->retry_count++;
-    if (clientinfo->retry_count > CLIENT_CONNECT_RETRY_MAX) {
-        return 1;
-    }
-
-    return 0;
-}
 
 static void clientmanager_connection_init_handler(void* args) {
     clientmanager_t* mgr = (clientmanager_t*)args;
@@ -132,20 +115,77 @@ static void clientmanager_connection_init_handler(void* args) {
             if (httpclient_init(&client, host) == 0) {
                 clientmanager_wait_ready(mgr,client);
             } else {
-                //client_wait_reconnect(mgr,client);
+                client_wait_reconnect(mgr,client);
             }
         }
     }
 }
 
+static void clientmanager_check_reconnect_retry(clientmanager_t* mgr) {
+    int connection_retry_timeout = 100;
+    while(1) {
+        node_t* connect_retry_node = linklist_find_and_remove(&mgr->reconnect_list,clientmanager_check_client_timeout_cmp,(void*)&connection_retry_timeout, 0);
+        if(connect_retry_node != NULL) {
+            client_init_info_t* clientinfo = (client_init_info_t*)connect_retry_node->data;
+            clientinfo->retry_count++;
+            if (httpclient_init(&clientinfo->client, clientinfo->client.host) == 0) {
+                clientmanager_wait_ready(mgr,clientinfo->client);
+                linklist_node_deinit(connect_retry_node);
+            } else {
+                gettimeofday(&clientinfo->init_time, NULL);
+                if(clientinfo->retry_count > 10) {
+                    report_add_req_failure(1);
+                    linklist_node_deinit(connect_retry_node);
+                } else {
+                    linklist_add(&mgr->reconnect_list, connect_retry_node);
+                }
+            }
+        } else {
+            break;
+        }
+    } 
+}
+
+static void clientmanager_check_client_ready(clientmanager_t* mgr) {
+    int connection_ready_timeout = 500;
+    while(1) {
+        node_t* connect_timeout_node = linklist_find_and_remove(&mgr->wait_ready_list,clientmanager_check_client_timeout_cmp,(void*)&connection_ready_timeout, 0);
+        if(connect_timeout_node != NULL) {
+            client_init_info_t* clientinfo = (client_init_info_t*)connect_timeout_node->data;
+            if(clientinfo->client.sockfd > 0) {
+                epoll_ctl(mgr->wait_ready_list_fd, EPOLL_CTL_DEL, clientinfo->client.sockfd, NULL);
+                close(clientinfo->client.sockfd);
+            }
+
+            clientinfo->retry_count++;
+            if(clientinfo->retry_count > 10) {
+                report_add_req_failure(1);
+                linklist_node_deinit(connect_timeout_node);
+            } else {
+                clientinfo->client.sockfd = 0;
+                httpclient_init(&clientinfo->client, clientinfo->client.host); 
+                gettimeofday(&clientinfo->init_time,NULL);   
+                linklist_add(&mgr->wait_ready_list, connect_timeout_node);     
+            }
+        } else {
+            break;
+        }
+    }    
+}
+
 static void clientmanager_connection_monitor_handler(void* args) {
     clientmanager_t* mgr = (clientmanager_t*)args;
     struct epoll_event events[MAX_EVENTS];
-
+    int remain_request = 0;
+    int wait_ready_list_size = 0;
+    int reconnect_list_size = 0;
     while (1) {
-        LOG_DBG("sendworker_init: clientmanager_connection_monitor_handler");
         pthread_mutex_lock(&mgr->m);
-        if(mgr->is_completed == 1) {
+        remain_request = mgr->request_count;
+        wait_ready_list_size = linklist_get_size(&mgr->wait_ready_list);
+        reconnect_list_size = linklist_get_size(&mgr->reconnect_list);
+        if(remain_request <= 0 && wait_ready_list_size <= 0 && reconnect_list_size <= 0) {
+            mgr->is_completed = 1;
             pthread_mutex_unlock(&mgr->m);
             break;
         }
@@ -158,6 +198,7 @@ static void clientmanager_connection_monitor_handler(void* args) {
         }
 
         if(nfds == 0) {
+
             continue;
         }
 
@@ -177,75 +218,20 @@ static void clientmanager_connection_retry_handler(void* args) {
     int remain_request = 0;
     int wait_ready_list_size = 0;
     int reconnect_list_size = 0;
-    httpclient_t client;
-    hostinfor_t host;
-    int client_ready_timeout = 20;
-    int connect_retry_timeout = 1;
 
     while (1)
     {
         pthread_mutex_lock(&mgr->m);
         remain_request = mgr->request_count;
         wait_ready_list_size = linklist_get_size(&mgr->wait_ready_list);
-        //reconnect_list_size = linklist_get_size(&mgr->reconnect_list);
-        LOG_DBG("%d %d %d\n", remain_request, wait_ready_list_size,reconnect_list_size );
+        reconnect_list_size = linklist_get_size(&mgr->reconnect_list);
         if(remain_request <= 0 && wait_ready_list_size <= 0 && reconnect_list_size <= 0) {
-            mgr->is_completed = 1;
             pthread_mutex_unlock(&mgr->m);
             break;
         }
         pthread_mutex_unlock(&mgr->m);
-
-        // if(reconnect_list_size > 0) {
-        //     while(1) {
-        //         node_t* connect_retry_node = linklist_find_and_remove(&mgr->reconnect_list,clientmanager_check_client_timeout_cmp,(void*)&connect_retry_timeout, 0);
-        //         if(connect_retry_node != NULL) {
-        //             client_init_info_t* clientinfo = (client_init_info_t*)connect_retry_node->data;
-        //             if (httpclient_init(&client, clientinfo->client.host) == 0) {
-        //                 clientmanager_wait_ready(mgr,client);
-        //             } else {
-        //                 clientinfo->retry_count++;
-        //                 clientinfo->init_time = time(NULL);
-        //                 if(clientinfo->retry_count > CLIENT_CONNECT_RETRY_MAX) {
-        //                     LOG_DBG("connect_retry_node %d %d\n", clientinfo->retry_count, clientinfo->client.sockfd);
-        //                     report_add_req_failure(1);
-        //                     linklist_node_deinit(connect_retry_node);
-        //                 } else {
-        //                     linklist_add(&mgr->reconnect_list, connect_retry_node);
-        //                 }
-        //             }
-        //         } else {
-        //             break;
-        //         }
-        //     }
-        // }
-
-        if(wait_ready_list_size > 0) {
-            while(1) {
-                node_t* connect_timeout_node = linklist_find_and_remove(&mgr->wait_ready_list,clientmanager_check_client_timeout_cmp,(void*)&client_ready_timeout, 0);
-                if(connect_timeout_node != NULL) {
-                    client_init_info_t* clientinfo = (client_init_info_t*)connect_timeout_node->data;
-                    if(clientinfo->client.sockfd > 0) {
-                        close(clientinfo->client.sockfd);
-                    }
-
-                    clientinfo->retry_count++;
-                    if(clientinfo->retry_count > 1) {
-                        LOG_DBG("connect_retry_node %d %d\n", clientinfo->retry_count, clientinfo->client.sockfd);
-                        report_add_req_failure(1);
-                        linklist_node_deinit(connect_timeout_node);
-                    } else {
-                        clientinfo->client.sockfd = 0;
-                        httpclient_init(&clientinfo->client, clientinfo->client.host); 
-                        gettimeofday(&clientinfo->init_time,NULL);   
-                        linklist_add(&mgr->wait_ready_list, connect_timeout_node);     
-                    }
-                } else {
-                    break;
-                }
-            }
-        }
-
+        clientmanager_check_reconnect_retry(mgr);
+        clientmanager_check_client_ready(mgr);
         usleep(500*1000);
     }
 }
@@ -317,7 +303,6 @@ void clientmanager_deinit(clientmanager_t* mgr) {
     linklist_deinit(&mgr->ready_list);
     linklist_deinit(&mgr->reconnect_list);
     close(mgr->wait_ready_list_fd);
-
 }
 
 int  clientmanager_get_ready(clientmanager_t* mgr, httpclient_t* client) {
@@ -350,9 +335,9 @@ int  clientmanager_set_request_count(clientmanager_t* mgr, int count) {
 
 int  clientmanager_is_init_client_completed(clientmanager_t* mgr) {
     int is_completed = 0;
-    //pthread_mutex_lock(&mgr->m);
+    pthread_mutex_lock(&mgr->m);
     is_completed = mgr->is_completed;
-    //pthread_mutex_unlock(&mgr->m);
+    pthread_mutex_unlock(&mgr->m);
 
     return is_completed;
 }
