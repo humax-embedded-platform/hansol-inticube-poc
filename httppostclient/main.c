@@ -80,17 +80,18 @@ int main(int argc, char* argv[]) {
         userdbg_deinit();
         return -1;
     }
-        LOG_DBG("1111111\n");
 
     sendworker_deinit(&sendworker);
-        LOG_DBG("2222222\n");
     clientmanager_deinit(&clientmanager);
+    
     dbclient_deinit(&db);
     message_deinit(&msg);
     report_deinit();
     log_deinit();
     config_deinit();
     userdbg_deinit();
+
+
 
     return 0;
 }

@@ -6,10 +6,12 @@
 #include "worker.h"
 #include "dbclient.h"
 #include <pthread.h>
+#include <time.h>
+#include <sys/time.h>
 
 typedef struct client_init_info_t {
     httpclient_t client;
-    time_t init_time;
+    struct timeval init_time;
     int retry_count;
 }client_init_info_t;
 

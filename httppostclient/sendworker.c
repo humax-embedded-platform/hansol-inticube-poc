@@ -53,21 +53,28 @@ static void sendworker_task_handler(void* arg) {
     hostinfor_t host;
     httpclient_t client;
     int remain_request = 0;
-    int send_status = -1;
     static int sendworker_ready_retry_count = 0;
 
     while (1)
     {
         if(clientmanager_is_init_client_completed(sw->client_mgr) == 0) {
             if(clientmanager_get_ready(sw->client_mgr,&client) == 0) {
-                send_status = -1;
-                if (httpclient_send_post_msg(&client, sw->msg->msg) == 0) {
-                    send_status = 0;
-                } else {
-                    httpclient_deinit(&client);
+                int send_retry = 0;
+                int send_status = -1;
+                while (send_retry <= 100)
+                {
+                    if (httpclient_send_post_msg(&client, sw->msg->msg) == 0) {
+                        send_status = 0;
+                        break;
+                    } else {
+                        send_retry++;
+                        usleep(10*1000);
+                    }
                 }
-
+                
+                
                 if(send_status < 0) {
+                    httpclient_deinit(&client);
                     sendworker_add_to_retry_list(&sw->failure_list,client.host);
                     continue;
                 }
@@ -99,7 +106,7 @@ static void sendworker_task_handler(void* arg) {
                     linklist_node_deinit(retry_item);
                     continue;
                 }
-                send_status = -1;
+                int send_status = -1;
                 if (httpclient_init(&client, req->host) == 0) {
                     if (httpclient_send_post_msg(&client, sw->msg->msg) == 0) {
                         send_status = 0;

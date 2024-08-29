@@ -46,6 +46,9 @@ static void userdbg_task_handler(void* arg) {
 
         if(g_userdbg.is_completed == USERDBG_STATUS_COMPLETED) {
             while (buffer_read(&g_userdbg.dbg_buffer, &entry) == 0) {
+                if (entry.size >= USERDBG_BUFFER_SIZE) {
+                    entry.size = USERDBG_BUFFER_SIZE - 1;
+                }
                 entry.data[entry.size] = '\0';
                 printf("%s", entry.data);
                 buffer_log_entry_deinit(&entry);
@@ -107,6 +110,7 @@ void userdbg_deinit() {
 }
 
 void userdbg_write(const char* format, ...) {
+
     if (format == NULL || g_userdbg.is_completed == USERDBG_STATUS_COMPLETED) {
         return;
     }
@@ -124,7 +128,9 @@ void userdbg_write(const char* format, ...) {
         return;
     }
 
-    buffer_write(&g_userdbg.dbg_buffer, buffer, (size_t)length);
+    printf("%s", buffer);
 
-    userdbg_set_buffer_status(1);
+    // buffer_write(&g_userdbg.dbg_buffer, buffer, (size_t)length);
+
+    // userdbg_set_buffer_status(1);
 }

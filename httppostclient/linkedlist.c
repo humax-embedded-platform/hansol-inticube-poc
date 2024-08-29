@@ -13,9 +13,11 @@ void linklist_init(linklist_t* list) {
 }
 
 void linklist_deinit(linklist_t* list) {
-    if (list == NULL) return;
-
     pthread_mutex_lock(&list->m);
+    if (list == NULL) {
+        pthread_mutex_unlock(&list->m);
+        return;
+    }
 
     node_t* current = list->head;
     while (current != NULL) {
@@ -33,9 +35,11 @@ void linklist_deinit(linklist_t* list) {
 }
 
 void linklist_add(linklist_t* list, node_t* item) {
-    if (list == NULL || item == NULL) return;
-
     pthread_mutex_lock(&list->m);
+    if (list == NULL || item == NULL){
+        pthread_mutex_unlock(&list->m);
+        return;
+    }
 
     item->next = list->head;
     item->prev = NULL;
@@ -56,9 +60,12 @@ void linklist_add(linklist_t* list, node_t* item) {
 }
 
 node_t* linklist_find_and_remove(linklist_t* list, int (*condition_cmp)(void*, void*), void* inputcondition, int from_head) {
-    if (list == NULL || condition_cmp == NULL) return NULL;
-
     pthread_mutex_lock(&list->m);
+
+    if (list == NULL || condition_cmp == NULL) {
+        pthread_mutex_unlock(&list->m);
+        return NULL;
+    }
 
     node_t* current = from_head ? list->head : list->tail;
 
@@ -79,6 +86,8 @@ node_t* linklist_find_and_remove(linklist_t* list, int (*condition_cmp)(void*, v
             }
 
             clone->size = current->size;
+            clone->next = NULL;
+            clone->prev = NULL;
             memcpy(clone->data, current->data, current->size);
 
             if (current->prev) {
@@ -111,7 +120,11 @@ node_t* linklist_find_and_remove(linklist_t* list, int (*condition_cmp)(void*, v
 
 
 void linklist_remove_with_condition(linklist_t* list, int (*condition_cmp)(void*, void*), void* inputcondition, int from_head) {
-    if (list == NULL || condition_cmp == NULL) return;
+    pthread_mutex_lock(&list->m);
+    if (list == NULL || condition_cmp == NULL) {
+        pthread_mutex_unlock(&list->m);
+        return;
+    }
 
     pthread_mutex_lock(&list->m);
 
@@ -146,12 +159,13 @@ void linklist_remove_with_condition(linklist_t* list, int (*condition_cmp)(void*
 }
 
 int  linklist_isempty(linklist_t* list) {
+    pthread_mutex_lock(&list->m);
     if(list == NULL) {
+        pthread_mutex_unlock(&list->m);
         return 1;
     }
 
     int isempty =0;
-    pthread_mutex_lock(&list->m);
     isempty = list->size > 0 ? 0 : 1;
     pthread_mutex_unlock(&list->m);
     return isempty;
@@ -194,11 +208,11 @@ size_t linklist_get_size(linklist_t* list) {
 }
 
 int linklist_find_and_update(linklist_t* list, int (*condition_check_and_modify)(void*, void*), void* inputcondition) {
+    pthread_mutex_lock(&list->m);
     if (list == NULL || condition_check_and_modify == NULL) {
+        pthread_mutex_unlock(&list->m);
         return 0;
     }
-
-    pthread_mutex_lock(&list->m);
 
     node_t* current = list->head;
     while (current != NULL) {
@@ -215,11 +229,11 @@ int linklist_find_and_update(linklist_t* list, int (*condition_check_and_modify)
 }
 
 void linklist_for_each(linklist_t* list, void (*callback)(void*, size_t)) {
+    pthread_mutex_lock(&list->m);
     if (list == NULL || callback == NULL) {
+        pthread_mutex_unlock(&list->m);
         return;
     }
-
-    pthread_mutex_lock(&list->m);
 
     node_t* current = list->head;
     while (current != NULL) {
@@ -231,9 +245,12 @@ void linklist_for_each(linklist_t* list, void (*callback)(void*, size_t)) {
 }
 
 node_t* linklist_remove_from_tail(linklist_t* list) {
-    if (list == NULL || list->tail == NULL) return NULL;
 
     pthread_mutex_lock(&list->m);
+    if (list == NULL || list->tail == NULL){
+        pthread_mutex_unlock(&list->m);
+        return NULL;
+    }
 
     node_t* removed_node = list->tail;
     if (list->tail->prev != NULL) {

@@ -191,7 +191,8 @@ int httpclient_send_post_msg(httpclient_t* httpclient, char* msg) {
     while (total_send < msg_length) {
         ssize_t sent = send(httpclient->sockfd, req.message + total_send, msg_length - total_send, 0);
         if (sent == -1) {
-            break;
+            httprequest_deinit(&req);
+            return -1;
         }
 
         total_send += sent;
