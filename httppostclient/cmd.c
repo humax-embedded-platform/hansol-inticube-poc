@@ -29,6 +29,19 @@ static bool is_valid_integer(const char *str) {
     return true;
 }
 
+bool is_txt_file(const char *filename) {  
+    // Find the last occurrence of '.'  
+    const char *dot = strrchr(filename, '.');  
+    
+    // If there is no dot or it's the first character, it's not a .txt file  
+    if (!dot || dot == filename) {  
+        return false; // Not a .txt file  
+    }  
+
+    // Compare the substring after the last dot with "txt"  
+    return strcmp(dot + 1, "txt") == 0 ? true : false;  
+}
+
 int cmd_parser(int argc, char* argv[]) {
 
     if (argc < 2) {
@@ -68,11 +81,17 @@ int cmd_parser(int argc, char* argv[]) {
             }
         } else if (strcmp(argv[i], "--input") == 0) {
             if ((i + 1) < argc) {
-                if (config_set_msg_file(argv[++i]) < 0) {
-                    printf("Error: Failed to set input file: %s.\n", argv[i]);
+                const char *input_value = argv[++i];
+                if (is_txt_file(input_value)) {
+                    if (config_set_msg_file(input_value) < 0) {
+                        printf("Error: Failed to set input file: %s.\n", argv[i]);
+                        return -1;
+                    }
+                    input_found = true;
+                } else {
+                    printf("Error: Invalid value for --input. Please enter a .txt file.\n");
                     return -1;
                 }
-                input_found = true;
             } else {
                 printf("Error: Missing value for --input.\n");
                 return -1;
