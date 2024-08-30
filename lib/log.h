@@ -5,7 +5,7 @@
 #include "worker.h"
 #include <pthread.h>
 
-#define LOG_BUFFER_CAPACITY 1000
+#define LOG_BUFFER_CAPACITY 2000
 #define LOG_MESAGE_MAX_SIZE 2*1024
 #define LOG_FRAME_MAX_SIZE  (LOG_MESAGE_MAX_SIZE + 20)
 #define LOG_BUFFER_FLUSH_THRESHOLD_SIZE (LOG_FRAME_MAX_SIZE * 20)

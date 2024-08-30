@@ -63,7 +63,7 @@ static int start_log_server(void) {
 
     if (pid == 0) {
         if (execlp(log_server_path, log_server_path, (char *)NULL) == -1) {
-            perror("start_log_server: Failed to start log server");
+            LOG_DBG("start_log_server: Failed to start log server");
             return -1;
         }
     } else {
@@ -136,7 +136,6 @@ void log_worker_func(void* arg) {
                             write_buff_count = 0;
                             break;
                         }
-                        perror("Failed to send log data");
                     } else {
                         write_start_index += bytes_written;
                         write_buff_count -= bytes_written;
@@ -162,7 +161,6 @@ void log_worker_func(void* arg) {
                             write_buff_count = 0;
                             break;
                         }
-                        LOG_DBG("Failed to send log data");
                     } else {
                         write_start_index += bytes_written;
                         write_buff_count -= bytes_written;

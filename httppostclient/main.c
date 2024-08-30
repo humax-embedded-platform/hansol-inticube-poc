@@ -25,6 +25,8 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
+    LOG_INFO("Start Program...\n");
+
     if (dbclient_init(&db, TEXT_DB, config_get_host_file()) < 0) {
         log_deinit();
         config_deinit();
