@@ -66,7 +66,7 @@ static int recvworker_httprespond_timeout_handler(recvworker_t* rw, http_resp_t*
 
         log_write(buffer, log_len);
 
-        LOG_DBG("Host: %s Port %d Respond Code: %d (Timeout)\n", rsp->client.host.adress.domain, rsp->client.host.port, 28);
+        LOG_INFO("Host: %s Port %d Respond Code: %d (Timeout)\n", rsp->client.host.adress.domain, rsp->client.host.port, 28);
         report_add_resp_code(28);
     }
 
@@ -103,7 +103,7 @@ static int recvworker_httprespond_event_handler(recvworker_t* rw, http_resp_t* r
         log_write(buffer, log_len);
         int error = recvworker_analyze_httprespond(msg, len);
 
-        LOG_DBG("Host: %s Port %d Respond Code: %d (Success)\n", rsp->client.host.adress.domain, rsp->client.host.port, error);
+        LOG_INFO("Host: %s Port %d Respond Code: %d (Success)\n", rsp->client.host.adress.domain, rsp->client.host.port, error);
         report_add_resp_code(error);
     }
 

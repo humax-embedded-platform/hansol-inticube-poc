@@ -13,11 +13,11 @@ void linklist_init(linklist_t* list) {
 }
 
 void linklist_deinit(linklist_t* list) {
+    pthread_mutex_lock(&list->m);
     if (list == NULL) {
+        pthread_mutex_unlock(&list->m);
         return;
     }
-
-    pthread_mutex_lock(&list->m);
 
     node_t* current = list->head;
     while (current != NULL) {
