@@ -141,12 +141,15 @@ static void sendworker_task_handler(void* arg) {
 
 int sendworker_set_hostdb(sendworker_t* sw, dbclient* db) {
     sw->hostdb = db;
+    return 0;
 }
 int sendworker_set_msg(sendworker_t* sw, usermsg_t* msg) {
     sw->msg = msg;
+    return 0;
 }
 int sendworker_set_request_count(sendworker_t* sw, int count) {
     sw->request_count = count;
+    return 0;
 }
 
 int sendworker_init(sendworker_t* sw) {
